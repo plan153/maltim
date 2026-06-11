@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="말트임 — 입으로 익히는 진짜 일본어">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="말트임 일본어">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>말트임 일본어</title>
+  <link rel="manifest" href="manifest.json">
+
+  <!-- Microsoft Cognitive Services Speech SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/microsoft-cognitiveservices-speech-sdk@latest/distrib/browser/microsoft.cognitiveservices.speech.sdk.bundle-min.js"></script>
+  <script>
+    // 현재 진행 중인 Azure 재생 1건만 추적한다.
+    window.__azureActive = null;
+
+    // 모든 재생에 재사용하는 단일 <audio> 엘리먼트.
+    // (iOS WebKit은 AudioContext 개수를 강하게 제한하므로, 매 재생마다 SDK 내부
+    //  AudioContext를 새로 만들면 2~3회 후 무음이 된다. 데이터만 합성해 하나의
+    //  오디오 엘리먼트로 재생하면 이 제한을 피할 수 있다.)
+    window.__ttsAudioEl = null;
+    window.__getTtsAudioEl = function() {
+      if (!window.__ttsAudioEl) {
+        const el = new Audio();
+        el.preload = 'auto';
+        el.setAttribute('playsinline', '');
+        window.__ttsAudioEl = el;
+      }
+      return window.__ttsAudioEl;
+    };
+
+    // 사용자 제스처 안에서 호출해 오디오 엘리먼트를 언락한다 (iOS 자동재생 정책).
+    window.unlockTtsAudioWeb = function() {
+      try {
+        const el = window.__getTtsAudioEl();
+        el.muted = true;
+        const p = el.play();
+        if (p && p.then) {
+          p.then(() => { el.pause(); el.currentTime = 0; el.muted = false; })
+           .catch(() => { el.muted = false; });
+        } else {
+          el.pause(); el.muted = false;
+        }
+      } catch (e) {}
+    };
+
+    window.stopAzureTtsWeb = function() {
+      const a = window.__azureActive;
+      window.__azureActive = null;
+      if (a && a.settle) { try { a.settle(false); } catch (e) {} }
+      try {
+        const el = window.__ttsAudioEl;
+        if (el) { el.pause(); }
+      } catch (e) {}
+    };
+
+    // 오디오 '데이터'만 합성한 뒤(SDK 내부 오디오 출력 미사용), 재사용 오디오
+    // 엘리먼트로 재생하고 실제 'ended' 시점에 resolve 한다.
+    window.playAzureTtsWeb = function(text, key, region, voice, rateMultiplier) {
+      window.stopAzureTtsWeb();
+
+      return new Promise((resolve, reject) => {
+        try {
+          if (typeof SpeechSDK === 'undefined') {
+            reject("Azure Speech SDK is not loaded.");
+            return;
+          }
+
+          const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(key, region);
+          speechConfig.speechSynthesisOutputFormat =
+            SpeechSDK.SpeechSynthesisOutputFormat.Audio24Khz48KBitRateMonoMp3;
+          // audioConfig = null → 스피커로 직접 재생하지 않고 result.audioData 반환
+          const synthesizer = new SpeechSDK.SpeechSynthesizer(speechConfig, null);
+
+          const entry = { synthesizer: synthesizer, settle: null, done: false, url: null };
+          const finish = (val) => {
+            if (entry.done) return;
+            entry.done = true;
+            if (window.__azureActive === entry) window.__azureActive = null;
+            if (entry.url) { try { URL.revokeObjectURL(entry.url); } catch (e) {} }
+            try { synthesizer.close(); } catch (e) {}
+            resolve(val);
+          };
+          entry.settle = finish;
+          window.__azureActive = entry;
+
+          const escapedText = text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&apos;');
+
+          const ssml = `<speak version='1.0' xml:lang='ja-JP'>
+            <voice xml:lang='ja-JP' name='${voice}'>
+              <prosody rate="${rateMultiplier}">
+                ${escapedText}
+              </prosody>
+            </voice>
+          </speak>`;
+
+          synthesizer.speakSsmlAsync(
+            ssml,
+            result => {
+              if (result.reason === SpeechSDK.ResultReason.SynthesizingAudioCompleted &&
+                  result.audioData && result.audioData.byteLength > 0) {
+                try {
+                  const blob = new Blob([result.audioData], { type: 'audio/mpeg' });
+                  const url = URL.createObjectURL(blob);
+                  entry.url = url;
+                  const el = window.__getTtsAudioEl();
+                  el.onended = () => finish(true);
+                  el.onerror = () => finish(false);
+                  el.muted = false;
+                  el.src = url;
+                  const pp = el.play();
+                  if (pp && pp.catch) { pp.catch(() => finish(false)); }
+                } catch (e) {
+                  finish(false);
+                }
+              } else {
+                finish(false);
+              }
+            },
+            error => { finish(false); }
+          );
+        } catch (e) {
+          reject("Azure Speech SDK error: " + e.toString());
+        }
+      });
+    };
+
+    // 문장 전환용 짧은 효과음 (WebAudio 비프, 에셋 불필요). 끝나면 resolve.
+    window.playChimeWeb = function() {
+      return new Promise((resolve) => {
+        try {
+          const Ctx = window.AudioContext || window.webkitAudioContext;
+          if (!Ctx) { resolve(true); return; }
+          window.__chimeCtx = window.__chimeCtx || new Ctx();
+          const ctx = window.__chimeCtx;
+          if (ctx.state === 'suspended') { try { ctx.resume(); } catch (e) {} }
+          const now = ctx.currentTime;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          // 두 음(미→솔) 짧은 상승 차임
+          osc.frequency.setValueAtTime(660, now);
+          osc.frequency.setValueAtTime(880, now + 0.12);
+          gain.gain.setValueAtTime(0.0001, now);
+          gain.gain.exponentialRampToValueAtTime(0.25, now + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.32);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.34);
+          osc.onended = () => resolve(true);
+          setTimeout(() => resolve(true), 450); // 안전망
+        } catch (e) {
+          resolve(true);
+        }
+      });
+    };
+  </script>
+</head>
+<body>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

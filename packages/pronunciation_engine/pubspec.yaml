@@ -1,0 +1,19 @@
+name: pronunciation_engine
+description: >-
+  재사용 가능한 발음 채점·정렬·피드백 핵심 엔진 (순수 Dart).
+  문장/청크/단어 단위로 목표 텍스트와 음성 인식 결과를 비교하여
+  단어 정렬, 점수, 학습 피드백을 생성한다. TTS/STT는 추상 인터페이스로만 노출하며,
+  LanguageConfig로 언어별(영어/일본어 등) 토큰화·정규화·로케일을 주입한다.
+version: 0.2.0
+publish_to: 'none'
+
+environment:
+  sdk: ^3.12.0
+
+dependencies:
+  # 단어 유사도 비교 (Dice coefficient). 순수 Dart.
+  string_similarity: ^2.0.0
+
+dev_dependencies:
+  test: ^1.24.0
+  lints: ^4.0.0
