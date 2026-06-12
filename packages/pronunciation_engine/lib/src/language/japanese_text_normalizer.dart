@@ -6,8 +6,13 @@
 /// 2. 가타카나 → 히라가나 변환 ("히라가나로 정규화")
 /// 3. 일본어/일반 구두점·공백 제거
 ///
-/// 한자→읽기(요미가나) 변환은 사전(형태소 분석)이 필요해 여기서는 다루지 않는다.
-/// STT가 표준 표기로 출력하므로 동일 문장이면 한자 표기도 대부분 일치한다.
+/// 한자→읽기(요미가나) 변환은 일반적으로 사전(형태소 분석)이 필요하지만,
+/// 커리큘럼에 등장하는 어휘는 한정적이므로 [KanjiReadingMap]으로 그 범위만
+/// 처리한다 (4. 구두점/공백 제거 전, 한자 변환).
+library;
+
+import 'kanji_reading_map.dart';
+
 class JapaneseTextNormalizer {
   JapaneseTextNormalizer._();
 
@@ -56,10 +61,12 @@ class JapaneseTextNormalizer {
     return buffer.toString();
   }
 
-  /// 채점 비교용 정규화: 폭 정규화 → 가타카나→히라가나 → 구두점/공백 제거 → 소문자.
+  /// 채점 비교용 정규화: 폭 정규화 → 가타카나→히라가나 → 한자→읽기 변환
+  /// → 구두점/공백 제거 → 소문자.
   static String clean(String input) {
     var s = normalizeWidth(input);
     s = katakanaToHiragana(s);
+    s = KanjiReadingMap.convert(s);
     s = s.replaceAll(_punctuation, '');
     return s.toLowerCase().trim();
   }
