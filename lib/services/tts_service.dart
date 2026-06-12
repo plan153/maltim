@@ -77,6 +77,11 @@ class TtsService {
     // 제스처 컨텍스트가 유효한 동안(첫 await 이전) 오디오 엘리먼트를 동기적으로 언락.
     if (kIsWeb) {
       WebTtsHelper.unlockAudio();
+      // 웹에서는 위 호출로 충분하다. flutter_tts.speak(' ')는 일부 브라우저에서
+      // 'end' 이벤트가 발생하지 않아 awaitSpeakCompletion(true) 상태에서 영원히
+      // resolve되지 않고, 이로 인해 _playSingle()의 이후 Azure TTS 호출이
+      // 전혀 실행되지 않는 문제(듣기 버튼 무음)가 있었다.
+      return;
     }
     try {
       await init();
