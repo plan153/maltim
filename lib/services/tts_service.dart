@@ -33,8 +33,13 @@ class TtsService {
     try {
       final prefs = await SharedPreferences.getInstance();
       speechRate = prefs.getDouble('tts_speech_rate') ?? 0.5;
-      azureVoice =
-          prefs.getString('tts_azure_voice') ?? appLanguage.ttsVoice;
+      final savedVoice = prefs.getString('tts_azure_voice');
+      // 이전 버전(영어 프리셋 등)에서 저장된 'en-US-...' 같은 잘못된 보이스 값이
+      // 남아있으면 무시한다. (예: en-US-AriaNeural 저장 시 Azure 합성이
+      // 조용히 실패해 듣기 버튼이 무음이 됨)
+      azureVoice = (savedVoice != null && savedVoice.startsWith('ja-JP'))
+          ? savedVoice
+          : appLanguage.ttsVoice;
     } catch (e) {
       print('TtsService loadSettings error: $e');
     }
