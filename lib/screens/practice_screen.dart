@@ -39,6 +39,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
   String _recognizedText = '';
   bool _showTranslation = true;
   bool _showReading = true;
+  bool _showVocab = false;
 
   // 결과
   bool _hasResult = false;
@@ -143,6 +144,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
     _feedback = '';
     _hasResult = false;
     _isListening = false;
+    _showVocab = false;
     _statusMessage =
         _useDemoMode ? _t('instruction_demo') : _t('instruction_default');
   }
@@ -562,6 +564,11 @@ class _PracticeScreenState extends State<PracticeScreen> {
               ),
             ),
           ],
+          // ④ 단어 사전 (아코디언)
+          if (s.vocabulary.isNotEmpty && _showVocab) ...[
+            const SizedBox(height: 12),
+            _buildVocabPanel(s),
+          ],
           const SizedBox(height: 14),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -594,6 +601,33 @@ class _PracticeScreenState extends State<PracticeScreen> {
                       ),
                     ),
                   ),
+                  if (s.vocabulary.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    // 단어 사전 토글
+                    GestureDetector(
+                      onTap: () => setState(() => _showVocab = !_showVocab),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 9),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.1)),
+                        ),
+                        child: Text(
+                          _showVocab ? '단어✓' : '단어',
+                          style: TextStyle(
+                            color: _showVocab
+                                ? AppColors.accent
+                                : AppColors.textMuted,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
               Row(
@@ -619,6 +653,82 @@ class _PracticeScreenState extends State<PracticeScreen> {
           const Divider(color: Colors.white10, height: 1),
           const SizedBox(height: 12),
           _buildPlaybackControls(),
+        ],
+      ),
+    );
+  }
+
+  /// 문장에 등장하는 핵심 단어 목록 (단어 사전 아코디언 내용).
+  Widget _buildVocabPanel(PracticeSentence s) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final v in s.vocabulary) _buildVocabEntry(v),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVocabEntry(VocabEntry v) {
+    final headword = v.kanji.isNotEmpty ? '${v.kanji} (${v.word})' : v.word;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                headword,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                v.reading,
+                style: TextStyle(
+                  color: AppColors.accent.withValues(alpha: 0.85),
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          Text(
+            '${v.meaning}  ·  ${v.pos}',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.6),
+              fontSize: 12,
+            ),
+          ),
+          if (v.forms.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final f in v.forms)
+                    Text(
+                      '· $f',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.5),
+                        fontSize: 12,
+                      ),
+                    ),
+                ],
+              ),
+            ),
         ],
       ),
     );

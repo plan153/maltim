@@ -20,6 +20,27 @@ class SentenceStorageService {
       category: 'Day 1 · 이동 동사',
       chunks: ['がっこうに', 'いきます'],
       translation: '학교에 갑니다',
+      vocabulary: [
+        VocabEntry(
+          word: 'がっこう',
+          kanji: '学校',
+          reading: '각꼬-',
+          meaning: '학교',
+          pos: '명사',
+        ),
+        VocabEntry(
+          word: 'いきます',
+          kanji: '行きます',
+          reading: '이키마스',
+          meaning: '갑니다',
+          pos: '동사(1군 · 行く)',
+          forms: [
+            'いく(사전형) - 가다',
+            'いきました - 갔습니다',
+            'いきません - 가지 않습니다',
+          ],
+        ),
+      ],
     ),
     PracticeSentence(
       id: 'd01_2',
@@ -28,6 +49,27 @@ class SentenceStorageService {
       category: 'Day 1 · 이동 동사',
       chunks: ['うちに', 'かえります'],
       translation: '집에 돌아갑니다',
+      vocabulary: [
+        VocabEntry(
+          word: 'うち',
+          kanji: '家',
+          reading: '우치',
+          meaning: '집',
+          pos: '명사',
+        ),
+        VocabEntry(
+          word: 'かえります',
+          kanji: '帰ります',
+          reading: '카에리마스',
+          meaning: '돌아갑니다',
+          pos: '동사(1군 · 帰る)',
+          forms: [
+            'かえる(사전형) - 돌아가다',
+            'かえりました - 돌아갔습니다',
+            'かえりません - 돌아가지 않습니다',
+          ],
+        ),
+      ],
     ),
     PracticeSentence(
       id: 'd01_3',
@@ -36,6 +78,27 @@ class SentenceStorageService {
       category: 'Day 1 · 이동 동사',
       chunks: ['まいにち', 'いきます'],
       translation: '매일 갑니다',
+      vocabulary: [
+        VocabEntry(
+          word: 'まいにち',
+          kanji: '毎日',
+          reading: '마이니치',
+          meaning: '매일',
+          pos: '명사 · 부사',
+        ),
+        VocabEntry(
+          word: 'いきます',
+          kanji: '行きます',
+          reading: '이키마스',
+          meaning: '갑니다',
+          pos: '동사(1군 · 行く)',
+          forms: [
+            'いく(사전형) - 가다',
+            'いきました - 갔습니다',
+            'いきません - 가지 않습니다',
+          ],
+        ),
+      ],
     ),
     // ─ Day 2 · 일과 공부 ─
     PracticeSentence(
@@ -45,6 +108,27 @@ class SentenceStorageService {
       category: 'Day 2 · 일과 공부',
       chunks: ['しごとを', 'します'],
       translation: '일을 합니다',
+      vocabulary: [
+        VocabEntry(
+          word: 'しごと',
+          kanji: '仕事',
+          reading: '시고토',
+          meaning: '일, 업무',
+          pos: '명사',
+        ),
+        VocabEntry(
+          word: 'します',
+          kanji: '',
+          reading: '시마스',
+          meaning: '합니다',
+          pos: '동사(불규칙 · する)',
+          forms: [
+            'する(사전형) - 하다',
+            'しました - 했습니다',
+            'しません - 하지 않습니다',
+          ],
+        ),
+      ],
     ),
     PracticeSentence(
       id: 'd02_2',
@@ -53,6 +137,27 @@ class SentenceStorageService {
       category: 'Day 2 · 일과 공부',
       chunks: ['べんきょうを', 'します'],
       translation: '공부를 합니다',
+      vocabulary: [
+        VocabEntry(
+          word: 'べんきょう',
+          kanji: '勉強',
+          reading: '벤쿄-',
+          meaning: '공부',
+          pos: '명사',
+        ),
+        VocabEntry(
+          word: 'します',
+          kanji: '',
+          reading: '시마스',
+          meaning: '합니다',
+          pos: '동사(불규칙 · する)',
+          forms: [
+            'する(사전형) - 하다',
+            'しました - 했습니다',
+            'しません - 하지 않습니다',
+          ],
+        ),
+      ],
     ),
     PracticeSentence(
       id: 'd02_3',
@@ -61,6 +166,27 @@ class SentenceStorageService {
       category: 'Day 2 · 일과 공부',
       chunks: ['しごとに', 'いきます'],
       translation: '일하러 갑니다',
+      vocabulary: [
+        VocabEntry(
+          word: 'しごと',
+          kanji: '仕事',
+          reading: '시고토',
+          meaning: '일, 업무',
+          pos: '명사',
+        ),
+        VocabEntry(
+          word: 'いきます',
+          kanji: '行きます',
+          reading: '이키마스',
+          meaning: '갑니다',
+          pos: '동사(1군 · 行く)',
+          forms: [
+            'いく(사전형) - 가다',
+            'いきました - 갔습니다',
+            'いきません - 가지 않습니다',
+          ],
+        ),
+      ],
     ),
     PracticeSentence(
       id: 'd02_4',
@@ -69,6 +195,26 @@ class SentenceStorageService {
       category: 'Day 2 · 일과 공부',
       chunks: ['たいへんです'],
       translation: '힘듭니다 / 대단합니다',
+      vocabulary: [
+        VocabEntry(
+          word: 'たいへん',
+          kanji: '大変',
+          reading: '타이헨',
+          meaning: '힘든, 대단한',
+          pos: 'な형용사(어간)',
+          forms: [
+            'たいへんです - 힘듭니다(현재)',
+            'たいへんでした - 힘들었습니다(과거)',
+          ],
+        ),
+        VocabEntry(
+          word: 'です',
+          kanji: '',
+          reading: '데스',
+          meaning: '~입니다',
+          pos: '조동사(정중체)',
+        ),
+      ],
     ),
     // ─ Day 3 · 먹고 마시기 ─
     PracticeSentence(

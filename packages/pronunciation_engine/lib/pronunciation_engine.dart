@@ -13,6 +13,7 @@ export 'src/models/word_status.dart';
 export 'src/models/alignment_word.dart';
 export 'src/models/practice_level.dart';
 export 'src/models/practice_sentence.dart';
+export 'src/models/vocab_entry.dart';
 export 'src/models/practice_result.dart';
 
 // Scoring (영어 기본 채점기 — 하위 호환)

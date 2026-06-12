@@ -1,4 +1,5 @@
 import '../scoring/text_normalizer.dart';
+import 'vocab_entry.dart';
 
 /// 한 개의 연습 문장과 그 메타데이터.
 ///
@@ -14,6 +15,9 @@ class PracticeSentence {
   /// 발음 읽기 표기 (예: 일본어 요미가나 'わたしはがくせいです'). 없으면 빈 문자열.
   final String reading;
 
+  /// 문장에 등장하는 핵심 단어 목록 (한자/요미가나/뜻/품사/활용형). 없으면 빈 목록.
+  final List<VocabEntry> vocabulary;
+
   const PracticeSentence({
     required this.id,
     required this.text,
@@ -21,6 +25,7 @@ class PracticeSentence {
     required this.chunks,
     required this.translation,
     this.reading = '',
+    this.vocabulary = const [],
   });
 
   /// 본문을 공백 기준으로 나눈 개별 단어 목록 (구두점 보존, 빈 토큰 제거).
@@ -34,6 +39,8 @@ class PracticeSentence {
         'chunks': chunks,
         'translation': translation,
         if (reading.isNotEmpty) 'reading': reading,
+        if (vocabulary.isNotEmpty)
+          'vocabulary': vocabulary.map((v) => v.toJson()).toList(),
       };
 
   factory PracticeSentence.fromJson(
@@ -50,6 +57,10 @@ class PracticeSentence {
           [json['text']?.toString() ?? ''],
       translation: json['translation']?.toString() ?? '',
       reading: json['reading']?.toString() ?? '',
+      vocabulary: (json['vocabulary'] as List<dynamic>?)
+              ?.map((e) => VocabEntry.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const [],
     );
   }
 }
