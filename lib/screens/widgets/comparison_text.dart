@@ -131,9 +131,9 @@ class ComparisonText extends StatelessWidget {
         return _box(w.spokenWord, AppColors.warning, false, prefix: '+');
       case WordStatus.unknown:
         // 한자/가나 표기 차이로 일치 여부를 판단할 수 없는 경우.
-        // 오답(red)이 아닌 중립 색으로 표시하고, 인식된 표기를 참고로 보여준다.
-        return _box(w.targetWord, AppColors.primary, false,
-            sub: w.spokenWord, subPrefix: '≈');
+        // 오답(red)이 아닌 중립 색으로만 표시하고, 글자 단위 1:1 대응이
+        // 부정확할 수 있는 인식 표기(한자)는 노출하지 않는다.
+        return _box(w.targetWord, AppColors.primary, false);
     }
   }
 
