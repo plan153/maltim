@@ -45,7 +45,7 @@ jobs:
       - name: Build Flutter Web (Production)
         # GitHub Project Pages는 /<repo>/ 하위 경로에서 서빙되므로
         # base-href를 지정하지 않으면 main.dart.js 등 자산이 404가 난다.
-        run: flutter build web --release --no-tree-shake-icons --base-href "/maltrim-japanese/"
+        run: flutter build web --release --no-tree-shake-icons --base-href "/maltim/"
 
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3
