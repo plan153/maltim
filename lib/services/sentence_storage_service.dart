@@ -984,14 +984,37 @@ class SentenceStorageService {
     }
     try {
       final list = jsonDecode(raw) as List<dynamic>;
+      final defaultsById = {for (final d in _defaults) d.id: d};
       return [
         for (var i = 0; i < list.length; i++)
-          PracticeSentence.fromJson(
-              list[i] as Map<String, dynamic>, 'ja_imported_$i'),
+          _withDefaultVocabulary(
+            PracticeSentence.fromJson(
+                list[i] as Map<String, dynamic>, 'ja_imported_$i'),
+            defaultsById,
+          ),
       ];
     } catch (_) {
       return List.of(_defaults);
     }
+  }
+
+  /// 저장된 문장에 단어 사전(vocabulary)이 없으면 최신 기본 데이터에서 보충한다.
+  static PracticeSentence _withDefaultVocabulary(
+    PracticeSentence sentence,
+    Map<String, PracticeSentence> defaultsById,
+  ) {
+    if (sentence.vocabulary.isNotEmpty) return sentence;
+    final fallback = defaultsById[sentence.id];
+    if (fallback == null || fallback.vocabulary.isEmpty) return sentence;
+    return PracticeSentence(
+      id: sentence.id,
+      text: sentence.text,
+      category: sentence.category,
+      chunks: sentence.chunks,
+      translation: sentence.translation,
+      reading: sentence.reading,
+      vocabulary: fallback.vocabulary,
+    );
   }
 
   static Future<void> saveSentences(List<PracticeSentence> sentences) async {
