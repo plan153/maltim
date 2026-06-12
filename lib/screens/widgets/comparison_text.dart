@@ -129,11 +129,16 @@ class ComparisonText extends StatelessWidget {
         return _box(w.targetWord, Colors.grey, true);
       case WordStatus.extra:
         return _box(w.spokenWord, AppColors.warning, false, prefix: '+');
+      case WordStatus.unknown:
+        // 한자/가나 표기 차이로 일치 여부를 판단할 수 없는 경우.
+        // 오답(red)이 아닌 중립 색으로 표시하고, 인식된 표기를 참고로 보여준다.
+        return _box(w.targetWord, AppColors.primary, false,
+            sub: w.spokenWord, subPrefix: '≈');
     }
   }
 
   Widget _box(String text, Color color, bool strikethrough,
-      {String? sub, String prefix = ''}) {
+      {String? sub, String prefix = '', String subPrefix = '🗣'}) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -159,9 +164,9 @@ class ComparisonText extends StatelessWidget {
         ),
         if (sub != null && sub.isNotEmpty)
           Text(
-            '🗣$sub',
-            style: const TextStyle(
-              color: AppColors.warning,
+            '$subPrefix$sub',
+            style: TextStyle(
+              color: subPrefix == '🗣' ? AppColors.warning : AppColors.primary,
               fontSize: 10,
             ),
           ),

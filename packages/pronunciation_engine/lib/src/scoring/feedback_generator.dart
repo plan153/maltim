@@ -41,6 +41,11 @@ class FeedbackGenerator {
               ? '원문에 없는 불필요한 발음 "${word.spokenWord}"(을)를 추가로 말했습니다.'
               : 'Added extra "${word.spokenWord}"');
           break;
+        case WordStatus.unknown:
+          // 한자/가나 표기 차이로 일치 여부를 판단할 수 없으므로,
+          // 오답으로 단정하지 않고(팁 없음) 정답 후보로 집계한다.
+          matchCount++;
+          break;
       }
     }
 

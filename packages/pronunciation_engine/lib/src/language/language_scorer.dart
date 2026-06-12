@@ -20,6 +20,11 @@ class LanguageScorer {
   /// 유사도가 이 값 이상이면 정확한 발음(match)으로 간주.
   static const double matchSimilarityThreshold = 0.8;
 
+  /// 한자 ↔ 가나(히라가나) 표기 차이로 비교되는 1글자 토큰 쌍에 부여하는 유사도.
+  /// 발음 일치 여부를 판단할 수 없으므로 완전 불일치(0.0)보다는 낮은 비용을
+  /// 부여해, 정렬 시 단순 삭제/삽입보다는 같은 위치로 짝지어지도록 한다.
+  static const double _crossScriptSim = 0.5;
+
   /// 전체 점수(0~100): 정규화 문자열 전체의 Dice 유사도.
   double overallScore(String target, String spoken) {
     final cleanTarget = config.normalize(target);
@@ -57,7 +62,15 @@ class LanguageScorer {
     double sim(String a, String b) {
       if (a.isEmpty || b.isEmpty) return a == b ? 1.0 : 0.0;
       // 1글자 토큰(일본어 문자 단위)은 동일성으로 판정.
-      if (a.length < 2 || b.length < 2) return a == b ? 1.0 : 0.0;
+      if (a.length < 2 || b.length < 2) {
+        if (a == b) return 1.0;
+        // 목표(히라가나)와 STT 결과(한자)처럼 표기 체계가 다른 경우,
+        // 발음 일치 여부를 알 수 없으므로 완전 불일치로 단정하지 않는다.
+        if ((_isKanji(a) && _isKana(b)) || (_isKana(a) && _isKanji(b))) {
+          return _crossScriptSim;
+        }
+        return 0.0;
+      }
       return StringSimilarity.compareTwoStrings(a, b);
     }
 
@@ -89,10 +102,15 @@ class LanguageScorer {
         final deleteCost = dp[i - 1][j] + 1.0;
 
         if ((current - subCost).abs() < 1e-4) {
-          final status = (cleanTarget[i - 1] == cleanSpoken[j - 1] ||
-                  s > matchSimilarityThreshold)
-              ? WordStatus.match
-              : WordStatus.mismatch;
+          WordStatus status;
+          if (cleanTarget[i - 1] == cleanSpoken[j - 1] ||
+              s > matchSimilarityThreshold) {
+            status = WordStatus.match;
+          } else if (s == _crossScriptSim) {
+            status = WordStatus.unknown;
+          } else {
+            status = WordStatus.mismatch;
+          }
           aligned.add(AlignmentWord(
             targetWord: targetTokens[i - 1],
             spokenWord: spokenTokens[j - 1],
@@ -130,6 +148,21 @@ class LanguageScorer {
       }
     }
     return aligned.reversed.toList();
+  }
+
+  /// 한자(CJK 통합 한자, U+4E00–U+9FFF) 한 글자인지 여부.
+  static bool _isKanji(String s) {
+    if (s.isEmpty) return false;
+    final r = s.runes.single;
+    return r >= 0x4E00 && r <= 0x9FFF;
+  }
+
+  /// 히라가나(U+3040–U+309F) 한 글자인지 여부.
+  /// (가타카나는 [config.normalize]에서 이미 히라가나로 정규화됨)
+  static bool _isKana(String s) {
+    if (s.isEmpty) return false;
+    final r = s.runes.single;
+    return r >= 0x3040 && r <= 0x309F;
   }
 
   /// 한 번에 채점하여 [PracticeResult] 생성.
