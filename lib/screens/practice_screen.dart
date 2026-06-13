@@ -336,10 +336,12 @@ class _PracticeScreenState extends State<PracticeScreen> {
   Future<void> _toggleRecallListening() async {
     if (_isRecallListening) {
       setState(() => _isRecallListening = false);
+      TtsService.setMicActive(false);
       await _speechService.stopListening();
       return;
     }
 
+    TtsService.setMicActive(true);
     setState(() {
       _isRecallListening = true;
       _recallRecognized = '';
@@ -371,11 +373,13 @@ class _PracticeScreenState extends State<PracticeScreen> {
           _recallRecognized = text;
           if (isFinal) _isRecallListening = false;
         });
+        if (isFinal) TtsService.setMicActive(false);
       },
       onStatus: (status) {
         if ((status == 'notListening' || status == 'done') &&
             _isRecallListening) {
           setState(() => _isRecallListening = false);
+          TtsService.setMicActive(false);
         }
       },
     );
@@ -417,6 +421,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
         _isListening = false;
         _statusMessage = _t('instruction_analyzing');
       });
+      TtsService.setMicActive(false);
       if (_useDemoMode) {
         _runDemo();
       } else {
@@ -442,15 +447,19 @@ class _PracticeScreenState extends State<PracticeScreen> {
 
     if (_useDemoMode) return;
 
+    TtsService.setMicActive(true);
+
     await _speechService.startListening(
       onResult: (text, isFinal) {
         setState(() {
           _recognizedText = text;
           if (isFinal) _processResult(text);
         });
+        if (isFinal) TtsService.setMicActive(false);
       },
       onStatus: (status) {
         if ((status == 'notListening' || status == 'done') && _isListening) {
+          TtsService.setMicActive(false);
           setState(() {
             _isListening = false;
             _statusMessage = _t('instruction_analyzing');
