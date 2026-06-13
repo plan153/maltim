@@ -69,6 +69,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
   RecallDirection _recallDirection = RecallDirection.jpToKo;
   RecallScoringMode _recallScoringMode = RecallScoringMode.keyword;
   bool _recallRevealed = false;
+  bool _recallPeeking = false;
   bool _isRecallListening = false;
   String _recallRecognized = '';
 
@@ -177,6 +178,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
     _isListening = false;
     _showVocab = false;
     _recallRevealed = false;
+    _recallPeeking = false;
     _isRecallListening = false;
     _recallRecognized = '';
     _statusMessage =
@@ -290,15 +292,6 @@ class _PracticeScreenState extends State<PracticeScreen> {
     }
   }
 
-  /// 정답 보기. 키워드 채점 모드면 인식된 발화가 있을 때 자동으로 채점·기록한다.
-  void _recallReveal() {
-    setState(() => _recallRevealed = true);
-    if (_recallScoringMode == RecallScoringMode.keyword &&
-        _recallRecognized.isNotEmpty) {
-      _recordRecallScore(_recallKeywordScore);
-    }
-  }
-
   /// 키워드 채점 점수 (0~100).
   double get _recallKeywordScore {
     final s = _current;
@@ -359,8 +352,14 @@ class _PracticeScreenState extends State<PracticeScreen> {
         onResult: (text, isFinal) {
           setState(() {
             _recallRecognized = text;
+            if (text.isNotEmpty) _recallRevealed = true;
             if (isFinal) _isRecallListening = false;
           });
+          if (isFinal &&
+              _recallScoringMode == RecallScoringMode.keyword &&
+              text.isNotEmpty) {
+            _recordRecallScore(_recallKeywordScore);
+          }
         },
       );
       return;
@@ -371,9 +370,16 @@ class _PracticeScreenState extends State<PracticeScreen> {
       onResult: (text, isFinal) {
         setState(() {
           _recallRecognized = text;
+          if (text.isNotEmpty) _recallRevealed = true;
           if (isFinal) _isRecallListening = false;
         });
-        if (isFinal) TtsService.setMicActive(false);
+        if (isFinal) {
+          TtsService.setMicActive(false);
+          if (_recallScoringMode == RecallScoringMode.keyword &&
+              text.isNotEmpty) {
+            _recordRecallScore(_recallKeywordScore);
+          }
+        }
       },
       onStatus: (status) {
         if ((status == 'notListening' || status == 'done') &&
@@ -1039,39 +1045,45 @@ class _PracticeScreenState extends State<PracticeScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(24),
-              onTap: _isPlaying ? null : _speakRecallSource,
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  color: AppColors.accent.withValues(alpha: 0.12),
+          Row(
+            children: [
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                      color: AppColors.accent.withValues(alpha: 0.4)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.volume_up,
-                        color: AppColors.accent, size: 18),
-                    const SizedBox(width: 6),
-                    Text(_t('listen'),
-                        style: const TextStyle(
-                            color: AppColors.accent,
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold)),
-                  ],
+                  onTap: _isPlaying ? null : _speakRecallSource,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppColors.accent.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                          color: AppColors.accent.withValues(alpha: 0.4)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.volume_up,
+                            color: AppColors.accent, size: 18),
+                        const SizedBox(width: 6),
+                        Text(_t('listen'),
+                            style: const TextStyle(
+                                color: AppColors.accent,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
+              const SizedBox(width: 8),
+              _isPlaying ? _stopButton() : _recallContinuousButton(),
+            ],
           ),
           const SizedBox(height: 16),
           // 정답 (목표 문장)
-          if (_recallRevealed) ...[
+          if (_recallRevealed || _recallPeeking) ...[
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -1100,13 +1112,19 @@ class _PracticeScreenState extends State<PracticeScreen> {
               ),
             ),
             const SizedBox(height: 16),
+          ],
+          if (_recallRevealed)
             if (_recallScoringMode == RecallScoringMode.selfRating)
               _recallSelfRatingButtons()
             else
-              _recallKeywordResult(),
-          ] else
+              _recallKeywordResult()
+          else
+            // 말하면 정답이 자동으로 공개된다. 말하기 어려운 경우를 위해
+            // 이 버튼을 누르고 있는 동안만 정답을 임시로 볼 수 있다.
             GestureDetector(
-              onTap: _recallReveal,
+              onTapDown: (_) => setState(() => _recallPeeking = true),
+              onTapUp: (_) => setState(() => _recallPeeking = false),
+              onTapCancel: () => setState(() => _recallPeeking = false),
               child: Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -1116,7 +1134,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
                 ),
                 child: const Center(
                   child: Text(
-                    '정답 보기',
+                    '정답 보기 (누르고 있기)',
                     style: TextStyle(
                         color: Colors.white,
                         fontSize: 14,
@@ -1128,29 +1146,22 @@ class _PracticeScreenState extends State<PracticeScreen> {
           const SizedBox(height: 16),
           const Divider(color: Colors.white10, height: 1),
           const SizedBox(height: 12),
-          _recallScoringModeToggle(),
-          const SizedBox(height: 12),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              _isPlaying ? _stopButton() : _recallContinuousButton(),
-              Row(
-                children: [
-                  IconButton(
-                    onPressed: _currentIndex > 0 ? _onPrev : null,
-                    icon: const Icon(Icons.arrow_back_ios, size: 18),
-                    color: AppColors.textPrimary,
-                    disabledColor: Colors.white10,
-                  ),
-                  IconButton(
-                    onPressed: _currentIndex < _sentences.length - 1
-                        ? _onNext
-                        : null,
-                    icon: const Icon(Icons.arrow_forward_ios, size: 18),
-                    color: AppColors.textPrimary,
-                    disabledColor: Colors.white10,
-                  ),
-                ],
+              IconButton(
+                onPressed: _currentIndex > 0 ? _onPrev : null,
+                icon: const Icon(Icons.arrow_back_ios, size: 18),
+                color: AppColors.textPrimary,
+                disabledColor: Colors.white10,
+              ),
+              IconButton(
+                onPressed: _currentIndex < _sentences.length - 1
+                    ? _onNext
+                    : null,
+                icon: const Icon(Icons.arrow_forward_ios, size: 18),
+                color: AppColors.textPrimary,
+                disabledColor: Colors.white10,
               ),
             ],
           ),
@@ -1189,66 +1200,6 @@ class _PracticeScreenState extends State<PracticeScreen> {
               const SizedBox(width: 4),
               const Icon(Icons.swap_horiz, color: AppColors.accent, size: 16),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _recallScoringModeToggle() {
-    return Row(
-      children: [
-        const Text('채점 ',
-            style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
-        const SizedBox(width: 6),
-        Expanded(
-          child: _recallToggleChip(
-            '자가채점',
-            _recallScoringMode == RecallScoringMode.selfRating,
-            () => setState(
-                () => _recallScoringMode = RecallScoringMode.selfRating),
-            small: true,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _recallToggleChip(
-            '키워드채점',
-            _recallScoringMode == RecallScoringMode.keyword,
-            () => setState(
-                () => _recallScoringMode = RecallScoringMode.keyword),
-            small: true,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _recallToggleChip(String label, bool selected, VoidCallback onTap,
-      {bool small = false}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: EdgeInsets.symmetric(vertical: small ? 8 : 12),
-        decoration: BoxDecoration(
-          color: selected
-              ? AppColors.accent.withValues(alpha: 0.15)
-              : Colors.white.withValues(alpha: 0.04),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: selected
-                ? AppColors.accent
-                : Colors.white.withValues(alpha: 0.1),
-          ),
-        ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: selected ? AppColors.accent : AppColors.textMuted,
-            fontSize: small ? 12 : 14,
-            fontWeight: selected ? FontWeight.bold : FontWeight.w500,
           ),
         ),
       ),
@@ -1752,6 +1703,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
     var localDemo = _useDemoMode;
     var selectedVoice = TtsService.azureVoice;
     var localRate = TtsService.speechRate;
+    var localScoringMode = _recallScoringMode;
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -1827,6 +1779,28 @@ class _PracticeScreenState extends State<PracticeScreen> {
                   inactiveColor: Colors.white10,
                   onChanged: (v) => setDialog(() => localRate = v),
                 ),
+                const SizedBox(height: 16),
+                const Text('입툭튀 채점 방식',
+                    style: TextStyle(
+                        color: AppColors.textMuted, fontSize: 12)),
+                RadioListTile<RecallScoringMode>(
+                  title: const Text('자가채점',
+                      style: TextStyle(
+                          color: AppColors.textPrimary, fontSize: 14)),
+                  value: RecallScoringMode.selfRating,
+                  groupValue: localScoringMode,
+                  activeColor: AppColors.accent,
+                  onChanged: (v) => setDialog(() => localScoringMode = v!),
+                ),
+                RadioListTile<RecallScoringMode>(
+                  title: const Text('키워드채점',
+                      style: TextStyle(
+                          color: AppColors.textPrimary, fontSize: 14)),
+                  value: RecallScoringMode.keyword,
+                  groupValue: localScoringMode,
+                  activeColor: AppColors.accent,
+                  onChanged: (v) => setDialog(() => localScoringMode = v!),
+                ),
               ],
             ),
           ),
@@ -1845,6 +1819,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
                   _speechService.useDemoMode = localDemo;
                   TtsService.azureVoice = selectedVoice;
                   TtsService.speechRate = localRate;
+                  _recallScoringMode = localScoringMode;
                   TtsService.saveSettings();
                   _resetSession();
                 });
