@@ -2,8 +2,8 @@ import 'dart:js_interop';
 
 /// index.html의 전역 JS 함수 바인딩 (dart:js_interop).
 @JS('playAzureTtsWeb')
-external JSPromise<JSAny?> _playAzureTtsWeb(
-    String text, String key, String region, String voice, String rate);
+external JSPromise<JSAny?> _playAzureTtsWeb(String text, String key,
+    String region, String voice, String rate, String? lang);
 
 @JS('stopAzureTtsWeb')
 external void _stopAzureTtsWeb();
@@ -20,8 +20,9 @@ external void _unlockTtsAudioWeb();
 /// await** 한다. (await하지 않으면 반복 듣기 시 음성이 겹쳐 메아리처럼 들린다.)
 class WebTtsHelper {
   static Future<void> playAzureTts(String text, String key, String region,
-      String voice, double rateMultiplier) async {
-    await _playAzureTtsWeb(text, key, region, voice, rateMultiplier.toString())
+      String voice, double rateMultiplier, [String? lang]) async {
+    await _playAzureTtsWeb(
+            text, key, region, voice, rateMultiplier.toString(), lang)
         .toDart;
   }
 

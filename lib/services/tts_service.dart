@@ -106,8 +106,14 @@ class TtsService {
   }
 
   /// Speaks the given text aloud. Interrupts any active speech.
-  static Future<void> speak(String text) async {
+  ///
+  /// [voice]/[locale]를 지정하면 기본 일본어 음성 대신 해당 음성/언어로
+  /// 합성한다 (예: 입툭튀 KO→JP 모드에서 한국어 문장을 읽을 때
+  /// voice='ko-KR-SunHiNeural', locale='ko-KR').
+  static Future<void> speak(String text, {String? voice, String? locale}) async {
     if (text.trim().isEmpty) return;
+    final speakVoice = voice ?? azureVoice;
+    final speakLocale = locale ?? appLanguage.ttsLocale;
 
     // 이 요청의 ID 확보. (stop()은 카운터를 증가시키지 않는다 — speak() 진입
     // 시점 한 곳에서만 무효화해야 자기 가드가 깨지지 않는다.)
@@ -121,8 +127,8 @@ class TtsService {
       if (isAzureEnabled) {
         try {
           final rateMultiplier = speechRate / 0.5;
-          await WebTtsHelper.playAzureTts(
-              text, azureKey, azureRegion, azureVoice, rateMultiplier);
+          await WebTtsHelper.playAzureTts(text, azureKey, azureRegion,
+              speakVoice, rateMultiplier, speakLocale);
           return;
         } catch (e) {
           print('Web Azure Speech SDK synthesis failed: $e. '
@@ -150,7 +156,8 @@ class TtsService {
 
     if (isAzureEnabled) {
       try {
-        final bytes = await _fetchAzureTtsAudio(text);
+        final bytes =
+            await _fetchAzureTtsAudio(text, voice: speakVoice, locale: speakLocale);
         if (speechId != _currentSpeechId) return;
         if (bytes != null) {
           await AudioPlayerHelper.playBytes(bytes);
@@ -177,10 +184,11 @@ class TtsService {
   }
 
   /// Azure Neural TTS REST API 호출 (네이티브 전용).
-  static Future<Uint8List?> _fetchAzureTtsAudio(String text) async {
+  static Future<Uint8List?> _fetchAzureTtsAudio(String text,
+      {String? voice, String? locale}) async {
     final region = azureRegion.trim();
     final key = azureKey.trim();
-    final voice = azureVoice.trim();
+    final ttsVoice = (voice ?? azureVoice).trim();
 
     final url = Uri.parse(
         'https://$region.tts.speech.microsoft.com/cognitiveservices/v1');
@@ -194,10 +202,10 @@ class TtsService {
 
     // prosody rate는 실수 배율 문자열 (백분율은 일부 엔진이 relative로 오독함)
     final rateMultiplier = speechRate / 0.5;
-    final lang = appLanguage.ttsLocale; // ja-JP
+    final lang = locale ?? appLanguage.ttsLocale; // ja-JP
     final ssml = '''
 <speak version='1.0' xml:lang='$lang'>
-  <voice xml:lang='$lang' name='$voice'>
+  <voice xml:lang='$lang' name='$ttsVoice'>
     <prosody rate="$rateMultiplier">
       $escapedText
     </prosody>

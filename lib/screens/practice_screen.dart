@@ -6,12 +6,19 @@ import '../app/theme.dart';
 import '../services/alignment_service.dart';
 import '../services/app_language.dart';
 import '../services/progress_service.dart';
+import '../services/recall_scorer.dart';
 import '../services/sentence_storage_service.dart';
 import '../services/speech_service.dart';
 import '../services/translation_service.dart';
 import '../services/tts_service.dart';
 import 'widgets/comparison_text.dart';
 import 'widgets/mic_button.dart';
+
+/// 입툭튀(장면 회상) 모드의 방향.
+enum RecallDirection { jpToKo, koToJp }
+
+/// 입툭튀 모드의 채점 방식.
+enum RecallScoringMode { selfRating, keyword }
 
 /// 듣기 + 따라 말하기 연습 화면 (일본어).
 ///
@@ -57,6 +64,13 @@ class _PracticeScreenState extends State<PracticeScreen> {
   bool _isPlaying = false;
   int _playRepeat = 0;
   late final PlaybackSequencer _sequencer;
+
+  // 입툭튀(장면 회상) 모드
+  RecallDirection _recallDirection = RecallDirection.jpToKo;
+  RecallScoringMode _recallScoringMode = RecallScoringMode.selfRating;
+  bool _recallRevealed = false;
+  bool _isRecallListening = false;
+  String _recallRecognized = '';
 
   String _t(String key) => TranslationService.get(key);
 
@@ -137,6 +151,20 @@ class _PracticeScreenState extends State<PracticeScreen> {
     }
   }
 
+  /// 입툭튀: 앱이 먼저 읽어주는 문장(원본 언어).
+  String get _recallSourceText {
+    final s = _current;
+    if (s == null) return '';
+    return _recallDirection == RecallDirection.jpToKo ? s.text : s.translation;
+  }
+
+  /// 입툭튀: 학습자가 떠올려 말해야 하는 문장(목표 언어).
+  String get _recallTargetText {
+    final s = _current;
+    if (s == null) return '';
+    return _recallDirection == RecallDirection.jpToKo ? s.translation : s.text;
+  }
+
   void _resetSession() {
     _recognizedText = '';
     _score = 0.0;
@@ -145,6 +173,9 @@ class _PracticeScreenState extends State<PracticeScreen> {
     _hasResult = false;
     _isListening = false;
     _showVocab = false;
+    _recallRevealed = false;
+    _isRecallListening = false;
+    _recallRecognized = '';
     _statusMessage =
         _useDemoMode ? _t('instruction_demo') : _t('instruction_default');
   }
@@ -241,6 +272,138 @@ class _PracticeScreenState extends State<PracticeScreen> {
       _isPlaying = false;
       _playRepeat = 0;
     });
+  }
+
+  // ── 입툭튀(장면 회상) ──
+
+  /// 원본 문장을 방향에 맞는 음성으로 재생한다.
+  Future<void> _speakRecallSource() async {
+    await TtsService.unlockAudioEngine();
+    if (_recallDirection == RecallDirection.koToJp) {
+      await TtsService.speak(_recallSourceText,
+          voice: 'ko-KR-SunHiNeural', locale: 'ko-KR');
+    } else {
+      await TtsService.speak(_recallSourceText);
+    }
+  }
+
+  /// 정답 보기. 키워드 채점 모드면 인식된 발화가 있을 때 자동으로 채점·기록한다.
+  void _recallReveal() {
+    setState(() => _recallRevealed = true);
+    if (_recallScoringMode == RecallScoringMode.keyword &&
+        _recallRecognized.isNotEmpty) {
+      _recordRecallScore(_recallKeywordScore);
+    }
+  }
+
+  /// 키워드 채점 점수 (0~100).
+  double get _recallKeywordScore {
+    final s = _current;
+    if (s == null || _recallRecognized.isEmpty) return 0;
+    if (_recallDirection == RecallDirection.jpToKo) {
+      return RecallScorer.scoreKorean(_recallRecognized, _recallTargetText);
+    }
+    return RecallScorer.scoreJapanese(_recallRecognized, s);
+  }
+
+  void _recordRecallScore(double score) {
+    final s = _current;
+    if (s == null) return;
+    ProgressService.recordAttempt(PracticeAttempt(
+      sentenceId: s.id,
+      level: PracticeLevel.recall,
+      score: score,
+      timestamp: DateTime.now(),
+    ));
+  }
+
+  /// 자가채점 버튼 선택 → 기록 후 다음 문장으로.
+  void _recallSelfRate(double score) {
+    _recordRecallScore(score);
+    if (_currentIndex < _sentences.length - 1) {
+      _onNext();
+    } else {
+      setState(() {
+        _recallRevealed = false;
+        _recallRecognized = '';
+      });
+    }
+  }
+
+  Future<void> _toggleRecallListening() async {
+    if (_isRecallListening) {
+      setState(() => _isRecallListening = false);
+      await _speechService.stopListening();
+      return;
+    }
+
+    setState(() {
+      _isRecallListening = true;
+      _recallRecognized = '';
+    });
+
+    // 학습자가 말해야 하는 언어(목표 언어)에 맞는 인식 로케일.
+    final localeId = _recallDirection == RecallDirection.jpToKo
+        ? 'ko-KR'
+        : appLanguage.sttLocale;
+
+    if (_useDemoMode) {
+      _speechService.simulateSpeechInput(
+        targetSentence: _recallTargetText,
+        accuracy: _simAccuracy,
+        onResult: (text, isFinal) {
+          setState(() {
+            _recallRecognized = text;
+            if (isFinal) _isRecallListening = false;
+          });
+        },
+      );
+      return;
+    }
+
+    await _speechService.startListening(
+      localeId: localeId,
+      onResult: (text, isFinal) {
+        setState(() {
+          _recallRecognized = text;
+          if (isFinal) _isRecallListening = false;
+        });
+      },
+      onStatus: (status) {
+        if ((status == 'notListening' || status == 'done') &&
+            _isRecallListening) {
+          setState(() => _isRecallListening = false);
+        }
+      },
+    );
+  }
+
+  /// 연속 모드: 전체 문장을 순서대로 재생 → 정답 공개 → 자동 다음 문장.
+  /// (단순화를 위해 마이크 인식은 사용하지 않는다.)
+  Future<void> _playRecallContinuous() async {
+    if (_isPlaying || _sentences.isEmpty) return;
+    setState(() {
+      _isPlaying = true;
+      _recallRevealed = false;
+      _recallRecognized = '';
+    });
+
+    for (var i = _currentIndex; i < _sentences.length; i++) {
+      if (!_isPlaying || !mounted) break;
+      setState(() {
+        _currentIndex = i;
+        _recallRevealed = false;
+        _recallRecognized = '';
+      });
+      await _speakRecallSource();
+      if (!_isPlaying || !mounted) break;
+      await Future.delayed(const Duration(seconds: 2));
+      if (!_isPlaying || !mounted) break;
+      setState(() => _recallRevealed = true);
+      await Future.delayed(const Duration(seconds: 2));
+    }
+
+    if (mounted) setState(() => _isPlaying = false);
   }
 
   // ── 발음 평가 ──
@@ -371,16 +534,20 @@ class _PracticeScreenState extends State<PracticeScreen> {
                           children: [
                             _buildLevelSelector(),
                             const SizedBox(height: 16),
-                            _buildTargetCard(_current!),
-                            const SizedBox(height: 20),
-                            if (_hasResult) ...[
-                              _buildScore(),
-                              const SizedBox(height: 16),
-                              _buildAlignment(),
-                              const SizedBox(height: 16),
-                              _buildFeedback(),
-                            ] else
-                              _buildInstructions(),
+                            if (_level == PracticeLevel.recall) ...[
+                              _buildRecallCard(_current!),
+                            ] else ...[
+                              _buildTargetCard(_current!),
+                              const SizedBox(height: 20),
+                              if (_hasResult) ...[
+                                _buildScore(),
+                                const SizedBox(height: 16),
+                                _buildAlignment(),
+                                const SizedBox(height: 16),
+                                _buildFeedback(),
+                              ] else
+                                _buildInstructions(),
+                            ],
                             const SizedBox(height: 30),
                           ],
                         ),
@@ -461,10 +628,13 @@ class _PracticeScreenState extends State<PracticeScreen> {
   }
 
   Widget _buildLevelSelector() {
-    // 일본어는 단어 레벨 미지원 → 문장/문절 2탭
-    final levels = appLanguage.supportsWordLevel
-        ? PracticeLevel.values
-        : [PracticeLevel.sentence, PracticeLevel.chunk];
+    // 일본어는 단어 레벨 미지원 → 문장/문절/입툭튀 3탭
+    final levels = [
+      PracticeLevel.sentence,
+      PracticeLevel.chunk,
+      if (appLanguage.supportsWordLevel) PracticeLevel.word,
+      PracticeLevel.recall,
+    ];
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
@@ -793,6 +963,380 @@ class _PracticeScreenState extends State<PracticeScreen> {
     );
   }
 
+  /// 입툭튀(장면 회상) 모드 카드.
+  Widget _buildRecallCard(PracticeSentence s) {
+    final isJpToKo = _recallDirection == RecallDirection.jpToKo;
+    final sourceLabel = isJpToKo ? '🇯🇵 일본어' : '🇰🇷 한국어';
+    final targetLabel = isJpToKo ? '🇰🇷 한국어' : '🇯🇵 일본어';
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: AppTheme.cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${_t('sentence_label')} ${_currentIndex + 1}/${_sentences.length}'
+                '  ·  ${s.category}',
+                style:
+                    const TextStyle(color: AppColors.textMuted, fontSize: 12),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            '장면을 떠올려 바로 말해보세요',
+            style: TextStyle(
+              color: AppColors.accent,
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _recallDirectionToggle(),
+          const SizedBox(height: 16),
+          // 원본 문장 (앱이 읽어주는 문장)
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(sourceLabel,
+                    style: const TextStyle(
+                        color: AppColors.textMuted, fontSize: 11)),
+                const SizedBox(height: 6),
+                Text(
+                  _recallSourceText,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          GestureDetector(
+            onTap: _isPlaying ? null : _speakRecallSource,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppColors.accent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(24),
+                border:
+                    Border.all(color: AppColors.accent.withValues(alpha: 0.4)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.volume_up,
+                      color: AppColors.accent, size: 18),
+                  const SizedBox(width: 6),
+                  Text(_t('listen'),
+                      style: const TextStyle(
+                          color: AppColors.accent,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // 정답 (목표 문장)
+          if (_recallRevealed) ...[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.accent.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                    color: AppColors.accent.withValues(alpha: 0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(targetLabel,
+                      style: const TextStyle(
+                          color: AppColors.textMuted, fontSize: 11)),
+                  const SizedBox(height: 6),
+                  Text(
+                    _recallTargetText,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (_recallScoringMode == RecallScoringMode.selfRating)
+              _recallSelfRatingButtons()
+            else
+              _recallKeywordResult(),
+          ] else
+            GestureDetector(
+              onTap: _recallReveal,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  gradient: AppColors.brandGradient,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: const Center(
+                  child: Text(
+                    '정답 보기',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ),
+          const SizedBox(height: 16),
+          const Divider(color: Colors.white10, height: 1),
+          const SizedBox(height: 12),
+          _recallScoringModeToggle(),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _isPlaying ? _stopButton() : _recallContinuousButton(),
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: _currentIndex > 0 ? _onPrev : null,
+                    icon: const Icon(Icons.arrow_back_ios, size: 18),
+                    color: AppColors.textPrimary,
+                    disabledColor: Colors.white10,
+                  ),
+                  IconButton(
+                    onPressed: _currentIndex < _sentences.length - 1
+                        ? _onNext
+                        : null,
+                    icon: const Icon(Icons.arrow_forward_ios, size: 18),
+                    color: AppColors.textPrimary,
+                    disabledColor: Colors.white10,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _recallDirectionToggle() {
+    return Row(
+      children: [
+        Expanded(
+          child: _recallToggleChip(
+            '일본어 → 한국어',
+            _recallDirection == RecallDirection.jpToKo,
+            () => setState(() {
+              _recallDirection = RecallDirection.jpToKo;
+              _resetSession();
+            }),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _recallToggleChip(
+            '한국어 → 일본어',
+            _recallDirection == RecallDirection.koToJp,
+            () => setState(() {
+              _recallDirection = RecallDirection.koToJp;
+              _resetSession();
+            }),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _recallScoringModeToggle() {
+    return Row(
+      children: [
+        const Text('채점 ',
+            style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+        const SizedBox(width: 6),
+        Expanded(
+          child: _recallToggleChip(
+            '자가채점',
+            _recallScoringMode == RecallScoringMode.selfRating,
+            () => setState(
+                () => _recallScoringMode = RecallScoringMode.selfRating),
+            small: true,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _recallToggleChip(
+            '키워드채점',
+            _recallScoringMode == RecallScoringMode.keyword,
+            () => setState(
+                () => _recallScoringMode = RecallScoringMode.keyword),
+            small: true,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _recallToggleChip(String label, bool selected, VoidCallback onTap,
+      {bool small = false}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: EdgeInsets.symmetric(vertical: small ? 8 : 12),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppColors.accent.withValues(alpha: 0.15)
+              : Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected
+                ? AppColors.accent
+                : Colors.white.withValues(alpha: 0.1),
+          ),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: selected ? AppColors.accent : AppColors.textMuted,
+            fontSize: small ? 12 : 14,
+            fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 자가채점 버튼: 다시 / 애매 / 정확.
+  Widget _recallSelfRatingButtons() {
+    return Row(
+      children: [
+        Expanded(
+          child: _recallRatingButton(
+              '다시', AppColors.danger, () => _recallSelfRate(20)),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _recallRatingButton(
+              '애매', AppColors.warning, () => _recallSelfRate(60)),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _recallRatingButton(
+              '정확', AppColors.success, () => _recallSelfRate(100)),
+        ),
+      ],
+    );
+  }
+
+  Widget _recallRatingButton(String label, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: color.withValues(alpha: 0.5)),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+              color: color, fontSize: 14, fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+
+  /// 키워드 채점 결과 + 마이크로 다시 말하기.
+  Widget _recallKeywordResult() {
+    final hasResult = _recallRecognized.isNotEmpty;
+    final score = hasResult ? _recallKeywordScore : 0.0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (hasResult) ...[
+          Row(
+            children: [
+              Text('점수 ${score.toInt()}점',
+                  style: TextStyle(
+                      color: AppColors.forScore(score),
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '🗣 $_recallRecognized',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      color: AppColors.textMuted, fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+        ],
+        Text(
+          _isRecallListening
+              ? _t('instruction_listening')
+              : '마이크를 눌러 말해보세요',
+          style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+        ),
+      ],
+    );
+  }
+
+  Widget _recallContinuousButton() {
+    return GestureDetector(
+      onTap: _playRecallContinuous,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          gradient: AppColors.brandGradient,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.playlist_play, color: Colors.white, size: 18),
+            const SizedBox(width: 6),
+            Text(
+              _t('continuous_listen'),
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _listenButton() {
     return GestureDetector(
       onTap: _isPlaying ? null : _playSingle,
@@ -1099,13 +1643,18 @@ class _PracticeScreenState extends State<PracticeScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (_isListening)
+          if (_isListening || _isRecallListening)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Text(
-                _recognizedText.isEmpty
-                    ? _t('say_words')
-                    : '"$_recognizedText"',
+                () {
+                  final recognized = _level == PracticeLevel.recall
+                      ? _recallRecognized
+                      : _recognizedText;
+                  return recognized.isEmpty
+                      ? _t('say_words')
+                      : '"$recognized"';
+                }(),
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -1127,11 +1676,17 @@ class _PracticeScreenState extends State<PracticeScreen> {
                 iconSize: 26,
               ),
               MicButton(
-                isListening: _isListening,
+                isListening: _level == PracticeLevel.recall
+                    ? _isRecallListening
+                    : _isListening,
                 useDemoMode: _useDemoMode,
                 onTap: () async {
                   await TtsService.unlockAudioEngine();
-                  await _toggleListening();
+                  if (_level == PracticeLevel.recall) {
+                    await _toggleRecallListening();
+                  } else {
+                    await _toggleListening();
+                  }
                 },
               ),
               IconButton(
