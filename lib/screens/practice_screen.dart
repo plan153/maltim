@@ -354,9 +354,11 @@ class _PracticeScreenState extends State<PracticeScreen> {
     // 이전 세션이 완전히 종료되지 않은 채로 남아있으면 새 listen() 호출이
     // 무시되어 말툭튀에서 마이크가 켜진 것처럼 보여도 인식이 시작되지 않는
     // 문제가 있었다. 새로 시작하기 전에 항상 한 번 정지시킨다.
+    // stop()은 마지막 인식 결과를 처리할 때까지 대기해 인식기가 완전히
+    // 초기화되지 않은 상태로 남을 수 있어, cancel()로 즉시 폐기한다.
     if (_speechService.isListening) {
-      await _speechService.stopListening();
-      await Future.delayed(const Duration(milliseconds: 200));
+      await _speechService.cancelListening();
+      await Future.delayed(const Duration(milliseconds: 300));
     }
 
     TtsService.setMicActive(true);
@@ -431,8 +433,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
     if (!mounted) return;
 
     if (_speechService.isListening) {
-      await _speechService.stopListening();
-      await Future.delayed(const Duration(milliseconds: 200));
+      await _speechService.cancelListening();
+      await Future.delayed(const Duration(milliseconds: 300));
     }
 
     TtsService.setMicActive(true);

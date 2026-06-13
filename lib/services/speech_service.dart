@@ -91,15 +91,20 @@ class SpeechService {
       onResult: (result) {
         onResult(result.recognizedWords, result.finalResult);
       },
-      listenFor: const Duration(seconds: 20),
-      // pauseFor가 길면 말을 멈춘 뒤 인식 확정까지 그만큼 기다리게 되어
-      // "반응이 늦다"고 느껴진다. 짧은 문장 연습이므로 침묵 판정을 짧게.
+      listenFor: const Duration(seconds: 30),
+      // 너무 짧으면 한 문장을 다 말하기 전에 인식이 끊겨 결과가 비거나
+      // 일부만 인식된다. 문장 연습이므로 충분한 침묵 허용 시간을 둔다.
       pauseFor: kIsWeb
-          ? const Duration(milliseconds: 1800)
-          : const Duration(milliseconds: 1500),
+          ? const Duration(milliseconds: 3000)
+          : const Duration(milliseconds: 2000),
       localeId: webLocale,
-      cancelOnError: false,
-      partialResults: true,
+      listenOptions: SpeechListenOptions(
+        cancelOnError: true,
+        partialResults: true,
+        // dictation 모드가 confirmation/search보다 문장 전체를 끝까지
+        // 듣고 인식하는 데 더 적합하다.
+        listenMode: ListenMode.dictation,
+      ),
     );
     onStatus('listening');
   }
