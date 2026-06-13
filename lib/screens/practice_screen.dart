@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pronunciation_engine/pronunciation_engine.dart';
@@ -273,6 +275,9 @@ class _PracticeScreenState extends State<PracticeScreen> {
   void _stopPlayback() {
     _sequencer.stop();
     TtsService.stop();
+    if (_isRecallListening) {
+      _speechService.stopListening();
+    }
     setState(() {
       _isPlaying = false;
       _playRepeat = 0;
@@ -417,8 +422,104 @@ class _PracticeScreenState extends State<PracticeScreen> {
     }
   }
 
-  /// 연속 모드: 전체 문장을 순서대로 재생 → 정답 공개 → 자동 다음 문장.
-  /// (단순화를 위해 마이크 인식은 사용하지 않는다.)
+  /// 연속 모드용 1회 STT 인식.
+  ///
+  /// `_toggleRecallListening`과 달리 인식이 끝나거나(최종 결과/상태 종료)
+  /// 일정 시간 무응답이면 자동으로 반환되어, 연속 재생 루프가 다음 문장으로
+  /// 진행할 수 있다.
+  Future<void> _listenOnceForRecall() async {
+    if (!mounted) return;
+
+    if (_speechService.isListening) {
+      await _speechService.stopListening();
+      await Future.delayed(const Duration(milliseconds: 200));
+    }
+
+    TtsService.setMicActive(true);
+    setState(() {
+      _isRecallListening = true;
+      _recallRecognized = '';
+    });
+
+    final localeId = _recallDirection == RecallDirection.jpToKo
+        ? 'ko-KR'
+        : appLanguage.sttLocale;
+
+    final completer = Completer<void>();
+    void finish() {
+      if (!completer.isCompleted) completer.complete();
+    }
+
+    if (_useDemoMode) {
+      _speechService.simulateSpeechInput(
+        targetSentence: _recallTargetText,
+        accuracy: _simAccuracy,
+        onResult: (text, isFinal) {
+          if (!mounted) return;
+          setState(() {
+            _recallRecognized = text;
+            if (text.isNotEmpty) _recallRevealed = true;
+            if (isFinal) _isRecallListening = false;
+          });
+          if (isFinal) {
+            if (_recallScoringMode == RecallScoringMode.keyword &&
+                text.isNotEmpty) {
+              _recordRecallScore(_recallKeywordScore);
+            }
+            finish();
+          }
+        },
+      );
+    } else {
+      try {
+        await _speechService.startListening(
+          localeId: localeId,
+          onResult: (text, isFinal) {
+            if (!mounted) return;
+            setState(() {
+              _recallRecognized = text;
+              if (text.isNotEmpty) _recallRevealed = true;
+              if (isFinal) _isRecallListening = false;
+            });
+            if (isFinal) {
+              TtsService.setMicActive(false);
+              if (_recallScoringMode == RecallScoringMode.keyword &&
+                  text.isNotEmpty) {
+                _recordRecallScore(_recallKeywordScore);
+              }
+              finish();
+            }
+          },
+          onStatus: (status) {
+            if (status == 'notListening' || status == 'done') {
+              if (mounted && _isRecallListening) {
+                setState(() => _isRecallListening = false);
+              }
+              TtsService.setMicActive(false);
+              finish();
+            }
+          },
+        );
+      } catch (e) {
+        debugPrint('말툭튀 연속 STT 오류: $e');
+        if (mounted) setState(() => _isRecallListening = false);
+        TtsService.setMicActive(false);
+        finish();
+      }
+    }
+
+    // 무응답 시 다음 문장으로 넘어가기 위한 최대 대기 시간.
+    await completer.future.timeout(const Duration(seconds: 8), onTimeout: () {});
+    if (_speechService.isListening) {
+      await _speechService.stopListening();
+    }
+    if (mounted && _isRecallListening) {
+      setState(() => _isRecallListening = false);
+    }
+    TtsService.setMicActive(false);
+  }
+
+  /// 연속 모드: 문장마다 (재생 → 마이크로 발화 인식 → 정답 공개) 후 다음 문장으로.
   Future<void> _playRecallContinuous() async {
     if (_isPlaying || _sentences.isEmpty) return;
     setState(() {
@@ -436,14 +537,16 @@ class _PracticeScreenState extends State<PracticeScreen> {
       });
       await _speakRecallSource();
       if (!_isPlaying || !mounted) break;
-      await Future.delayed(const Duration(seconds: 2));
+
+      // 학습자가 대응 문장을 말할 시간을 주고 STT로 인식한다.
+      await _listenOnceForRecall();
       if (!_isPlaying || !mounted) break;
+
       setState(() => _recallRevealed = true);
       await Future.delayed(const Duration(seconds: 2));
     }
 
     if (mounted) setState(() => _isPlaying = false);
-    await _autoStartRecallListening();
   }
 
   // ── 발음 평가 ──
