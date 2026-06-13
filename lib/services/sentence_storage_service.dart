@@ -22,13 +22,6 @@ class SentenceStorageService {
       translation: '학교에 갑니다',
       vocabulary: [
         VocabEntry(
-          word: 'がっこう',
-          kanji: '学校',
-          reading: '각꼬-',
-          meaning: '학교',
-          pos: '명사',
-        ),
-        VocabEntry(
           word: 'いきます',
           kanji: '行きます',
           reading: '이키마스',
@@ -36,8 +29,11 @@ class SentenceStorageService {
           pos: '동사(1군 · 行く)',
           forms: [
             'いく(사전형) - 가다',
-            'いきました - 갔습니다',
-            'いきません - 가지 않습니다',
+            'いきます(현재) - 갑니다',
+            'いきました(과거) - 갔습니다',
+            'いきません(부정) - 가지 않습니다',
+            'いきませんでした(과거부정) - 가지 않았습니다',
+            'いって(て형) - 가고/가서',
           ],
         ),
       ],
@@ -51,13 +47,6 @@ class SentenceStorageService {
       translation: '집에 돌아갑니다',
       vocabulary: [
         VocabEntry(
-          word: 'うち',
-          kanji: '家',
-          reading: '우치',
-          meaning: '집',
-          pos: '명사',
-        ),
-        VocabEntry(
           word: 'かえります',
           kanji: '帰ります',
           reading: '카에리마스',
@@ -65,8 +54,11 @@ class SentenceStorageService {
           pos: '동사(1군 · 帰る)',
           forms: [
             'かえる(사전형) - 돌아가다',
-            'かえりました - 돌아갔습니다',
-            'かえりません - 돌아가지 않습니다',
+            'かえります(현재) - 돌아갑니다',
+            'かえりました(과거) - 돌아갔습니다',
+            'かえりません(부정) - 돌아가지 않습니다',
+            'かえりませんでした(과거부정) - 돌아가지 않았습니다',
+            'かえって(て형) - 돌아가고/돌아가서',
           ],
         ),
       ],
@@ -80,13 +72,6 @@ class SentenceStorageService {
       translation: '매일 갑니다',
       vocabulary: [
         VocabEntry(
-          word: 'まいにち',
-          kanji: '毎日',
-          reading: '마이니치',
-          meaning: '매일',
-          pos: '명사 · 부사',
-        ),
-        VocabEntry(
           word: 'いきます',
           kanji: '行きます',
           reading: '이키마스',
@@ -94,8 +79,11 @@ class SentenceStorageService {
           pos: '동사(1군 · 行く)',
           forms: [
             'いく(사전형) - 가다',
-            'いきました - 갔습니다',
-            'いきません - 가지 않습니다',
+            'いきます(현재) - 갑니다',
+            'いきました(과거) - 갔습니다',
+            'いきません(부정) - 가지 않습니다',
+            'いきませんでした(과거부정) - 가지 않았습니다',
+            'いって(て형) - 가고/가서',
           ],
         ),
       ],
@@ -110,13 +98,6 @@ class SentenceStorageService {
       translation: '일을 합니다',
       vocabulary: [
         VocabEntry(
-          word: 'しごと',
-          kanji: '仕事',
-          reading: '시고토',
-          meaning: '일, 업무',
-          pos: '명사',
-        ),
-        VocabEntry(
           word: 'します',
           kanji: '',
           reading: '시마스',
@@ -124,8 +105,11 @@ class SentenceStorageService {
           pos: '동사(불규칙 · する)',
           forms: [
             'する(사전형) - 하다',
-            'しました - 했습니다',
-            'しません - 하지 않습니다',
+            'します(현재) - 합니다',
+            'しました(과거) - 했습니다',
+            'しません(부정) - 하지 않습니다',
+            'しませんでした(과거부정) - 하지 않았습니다',
+            'して(て형) - 하고/해서',
           ],
         ),
       ],
@@ -139,13 +123,6 @@ class SentenceStorageService {
       translation: '공부를 합니다',
       vocabulary: [
         VocabEntry(
-          word: 'べんきょう',
-          kanji: '勉強',
-          reading: '벤쿄-',
-          meaning: '공부',
-          pos: '명사',
-        ),
-        VocabEntry(
           word: 'します',
           kanji: '',
           reading: '시마스',
@@ -153,8 +130,11 @@ class SentenceStorageService {
           pos: '동사(불규칙 · する)',
           forms: [
             'する(사전형) - 하다',
-            'しました - 했습니다',
-            'しません - 하지 않습니다',
+            'します(현재) - 합니다',
+            'しました(과거) - 했습니다',
+            'しません(부정) - 하지 않습니다',
+            'しませんでした(과거부정) - 하지 않았습니다',
+            'して(て형) - 하고/해서',
           ],
         ),
       ],
@@ -168,13 +148,6 @@ class SentenceStorageService {
       translation: '일하러 갑니다',
       vocabulary: [
         VocabEntry(
-          word: 'しごと',
-          kanji: '仕事',
-          reading: '시고토',
-          meaning: '일, 업무',
-          pos: '명사',
-        ),
-        VocabEntry(
           word: 'いきます',
           kanji: '行きます',
           reading: '이키마스',
@@ -182,8 +155,11 @@ class SentenceStorageService {
           pos: '동사(1군 · 行く)',
           forms: [
             'いく(사전형) - 가다',
-            'いきました - 갔습니다',
-            'いきません - 가지 않습니다',
+            'いきます(현재) - 갑니다',
+            'いきました(과거) - 갔습니다',
+            'いきません(부정) - 가지 않습니다',
+            'いきませんでした(과거부정) - 가지 않았습니다',
+            'いって(て형) - 가고/가서',
           ],
         ),
       ],
@@ -203,8 +179,10 @@ class SentenceStorageService {
           meaning: '힘든, 대단한',
           pos: 'な형용사(어간)',
           forms: [
-            'たいへんです - 힘듭니다(현재)',
-            'たいへんでした - 힘들었습니다(과거)',
+            'たいへんです(현재) - 힘듭니다',
+            'たいへんでした(과거) - 힘들었습니다',
+            'たいへんじゃないです(부정) - 힘들지 않습니다',
+            'たいへんな+명사(명사수식형) - 힘든 ~ (예: たいへんなしごと - 힘든 일)',
           ],
         ),
         VocabEntry(
