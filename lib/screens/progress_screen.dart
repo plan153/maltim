@@ -205,7 +205,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
   Widget _buildByLevel(ProgressStats stats) {
     final byLevel = stats.attemptsByLevel;
-    // 일본어는 단어 레벨 미사용 → 문장/문절/입툭튀만 표시
+    // 일본어는 단어 레벨 미사용 → 문장/문절/말툭튀만 표시
     final levels = [
       PracticeLevel.sentence,
       PracticeLevel.chunk,

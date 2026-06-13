@@ -14,7 +14,7 @@ enum PracticeLevel {
   /// 단어 하나.
   word,
 
-  /// 양방향 장면 회상 연습 (입툭튀).
+  /// 양방향 장면 회상 연습 (말툭튀).
   recall,
 }
 
@@ -29,7 +29,7 @@ extension PracticeLevelLabel on PracticeLevel {
       case PracticeLevel.word:
         return '단어';
       case PracticeLevel.recall:
-        return '입툭튀';
+        return '말툭튀';
     }
   }
 

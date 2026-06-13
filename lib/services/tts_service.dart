@@ -116,7 +116,7 @@ class TtsService {
   /// Speaks the given text aloud. Interrupts any active speech.
   ///
   /// [voice]/[locale]를 지정하면 기본 일본어 음성 대신 해당 음성/언어로
-  /// 합성한다 (예: 입툭튀 KO→JP 모드에서 한국어 문장을 읽을 때
+  /// 합성한다 (예: 말툭튀 KO→JP 모드에서 한국어 문장을 읽을 때
   /// voice='ko-KR-SunHiNeural', locale='ko-KR').
   static Future<void> speak(String text, {String? voice, String? locale}) async {
     if (text.trim().isEmpty) return;

@@ -14,10 +14,10 @@ import '../services/tts_service.dart';
 import 'widgets/comparison_text.dart';
 import 'widgets/mic_button.dart';
 
-/// 입툭튀(장면 회상) 모드의 방향.
+/// 말툭튀(장면 회상) 모드의 방향.
 enum RecallDirection { jpToKo, koToJp }
 
-/// 입툭튀 모드의 채점 방식.
+/// 말툭튀 모드의 채점 방식.
 enum RecallScoringMode { selfRating, keyword }
 
 /// 듣기 + 따라 말하기 연습 화면 (일본어).
@@ -65,7 +65,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
   int _playRepeat = 0;
   late final PlaybackSequencer _sequencer;
 
-  // 입툭튀(장면 회상) 모드
+  // 말툭튀(장면 회상) 모드
   RecallDirection _recallDirection = RecallDirection.jpToKo;
   RecallScoringMode _recallScoringMode = RecallScoringMode.keyword;
   bool _recallRevealed = false;
@@ -155,14 +155,14 @@ class _PracticeScreenState extends State<PracticeScreen> {
     }
   }
 
-  /// 입툭튀: 앱이 먼저 읽어주는 문장(원본 언어).
+  /// 말툭튀: 앱이 먼저 읽어주는 문장(원본 언어).
   String get _recallSourceText {
     final s = _current;
     if (s == null) return '';
     return _recallDirection == RecallDirection.jpToKo ? s.text : s.translation;
   }
 
-  /// 입툭튀: 학습자가 떠올려 말해야 하는 문장(목표 언어).
+  /// 말툭튀: 학습자가 떠올려 말해야 하는 문장(목표 언어).
   String get _recallTargetText {
     final s = _current;
     if (s == null) return '';
@@ -279,7 +279,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
     });
   }
 
-  // ── 입툭튀(장면 회상) ──
+  // ── 말툭튀(장면 회상) ──
 
   /// 원본 문장을 방향에 맞는 음성으로 재생한다.
   Future<void> _speakRecallSource() async {
@@ -290,6 +290,18 @@ class _PracticeScreenState extends State<PracticeScreen> {
     } else {
       await TtsService.speak(_recallSourceText);
     }
+  }
+
+  /// 재생이 끝난 뒤 자동으로 마이크를 켠다 (듣기/연속듣기 종료 시 공통 사용).
+  Future<void> _autoStartRecallListening() async {
+    if (!mounted || _isRecallListening || _isPlaying) return;
+    await _toggleRecallListening();
+  }
+
+  /// 듣기 버튼: 원본 문장 재생 후 자동으로 마이크를 켠다.
+  Future<void> _onRecallListenTap() async {
+    await _speakRecallSource();
+    await _autoStartRecallListening();
   }
 
   /// 키워드 채점 점수 (0~100).
@@ -334,6 +346,14 @@ class _PracticeScreenState extends State<PracticeScreen> {
       return;
     }
 
+    // 이전 세션이 완전히 종료되지 않은 채로 남아있으면 새 listen() 호출이
+    // 무시되어 말툭튀에서 마이크가 켜진 것처럼 보여도 인식이 시작되지 않는
+    // 문제가 있었다. 새로 시작하기 전에 항상 한 번 정지시킨다.
+    if (_speechService.isListening) {
+      await _speechService.stopListening();
+      await Future.delayed(const Duration(milliseconds: 200));
+    }
+
     TtsService.setMicActive(true);
     setState(() {
       _isRecallListening = true;
@@ -365,30 +385,36 @@ class _PracticeScreenState extends State<PracticeScreen> {
       return;
     }
 
-    await _speechService.startListening(
-      localeId: localeId,
-      onResult: (text, isFinal) {
-        setState(() {
-          _recallRecognized = text;
-          if (text.isNotEmpty) _recallRevealed = true;
-          if (isFinal) _isRecallListening = false;
-        });
-        if (isFinal) {
-          TtsService.setMicActive(false);
-          if (_recallScoringMode == RecallScoringMode.keyword &&
-              text.isNotEmpty) {
-            _recordRecallScore(_recallKeywordScore);
+    try {
+      await _speechService.startListening(
+        localeId: localeId,
+        onResult: (text, isFinal) {
+          setState(() {
+            _recallRecognized = text;
+            if (text.isNotEmpty) _recallRevealed = true;
+            if (isFinal) _isRecallListening = false;
+          });
+          if (isFinal) {
+            TtsService.setMicActive(false);
+            if (_recallScoringMode == RecallScoringMode.keyword &&
+                text.isNotEmpty) {
+              _recordRecallScore(_recallKeywordScore);
+            }
           }
-        }
-      },
-      onStatus: (status) {
-        if ((status == 'notListening' || status == 'done') &&
-            _isRecallListening) {
-          setState(() => _isRecallListening = false);
-          TtsService.setMicActive(false);
-        }
-      },
-    );
+        },
+        onStatus: (status) {
+          if ((status == 'notListening' || status == 'done') &&
+              _isRecallListening) {
+            setState(() => _isRecallListening = false);
+            TtsService.setMicActive(false);
+          }
+        },
+      );
+    } catch (e) {
+      debugPrint('말툭튀 STT 시작 오류: $e');
+      if (mounted) setState(() => _isRecallListening = false);
+      TtsService.setMicActive(false);
+    }
   }
 
   /// 연속 모드: 전체 문장을 순서대로 재생 → 정답 공개 → 자동 다음 문장.
@@ -417,6 +443,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
     }
 
     if (mounted) setState(() => _isPlaying = false);
+    await _autoStartRecallListening();
   }
 
   // ── 발음 평가 ──
@@ -552,20 +579,35 @@ class _PracticeScreenState extends State<PracticeScreen> {
                           children: [
                             _buildLevelSelector(),
                             const SizedBox(height: 16),
-                            if (_level == PracticeLevel.recall) ...[
-                              _buildRecallCard(_current!),
-                            ] else ...[
-                              _buildTargetCard(_current!),
-                              const SizedBox(height: 20),
-                              if (_hasResult) ...[
-                                _buildScore(),
-                                const SizedBox(height: 16),
-                                _buildAlignment(),
-                                const SizedBox(height: 16),
-                                _buildFeedback(),
-                              ] else
-                                _buildInstructions(),
-                            ],
+                            GestureDetector(
+                              onHorizontalDragEnd: (details) {
+                                final velocity =
+                                    details.primaryVelocity ?? 0;
+                                if (velocity < -200) {
+                                  _onNext();
+                                } else if (velocity > 200) {
+                                  _onPrev();
+                                }
+                              },
+                              child: _level == PracticeLevel.recall
+                                  ? _buildRecallCard(_current!)
+                                  : Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        _buildTargetCard(_current!),
+                                        const SizedBox(height: 20),
+                                        if (_hasResult) ...[
+                                          _buildScore(),
+                                          const SizedBox(height: 16),
+                                          _buildAlignment(),
+                                          const SizedBox(height: 16),
+                                          _buildFeedback(),
+                                        ] else
+                                          _buildInstructions(),
+                                      ],
+                                    ),
+                            ),
                             const SizedBox(height: 30),
                           ],
                         ),
@@ -646,7 +688,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
   }
 
   Widget _buildLevelSelector() {
-    // 일본어는 단어 레벨 미지원 → 문장/문절/입툭튀 3탭
+    // 일본어는 단어 레벨 미지원 → 문장/문절/말툭튀 3탭
     final levels = [
       PracticeLevel.sentence,
       PracticeLevel.chunk,
@@ -981,7 +1023,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
     );
   }
 
-  /// 입툭튀(장면 회상) 모드 카드.
+  /// 말툭튀(장면 회상) 모드 카드.
   Widget _buildRecallCard(PracticeSentence s) {
     final isJpToKo = _recallDirection == RecallDirection.jpToKo;
     final sourceLabel = isJpToKo ? '🇯🇵 일본어' : '🇰🇷 한국어';
@@ -1051,7 +1093,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
                 color: Colors.transparent,
                 child: InkWell(
                   borderRadius: BorderRadius.circular(24),
-                  onTap: _isPlaying ? null : _speakRecallSource,
+                  onTap: _isPlaying ? null : _onRecallListenTap,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 10),
@@ -1121,50 +1163,74 @@ class _PracticeScreenState extends State<PracticeScreen> {
           else
             // 말하면 정답이 자동으로 공개된다. 말하기 어려운 경우를 위해
             // 이 버튼을 누르고 있는 동안만 정답을 임시로 볼 수 있다.
-            GestureDetector(
-              onTapDown: (_) => setState(() => _recallPeeking = true),
-              onTapUp: (_) => setState(() => _recallPeeking = false),
-              onTapCancel: () => setState(() => _recallPeeking = false),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  gradient: AppColors.brandGradient,
-                  borderRadius: BorderRadius.circular(24),
+            Row(
+              children: [
+                IconButton(
+                  onPressed: _currentIndex > 0 ? _onPrev : null,
+                  icon: const Icon(Icons.arrow_back_ios, size: 18),
+                  color: AppColors.textPrimary,
+                  disabledColor: Colors.white10,
                 ),
-                child: const Center(
-                  child: Text(
-                    '정답 보기 (누르고 있기)',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold),
+                Expanded(
+                  child: GestureDetector(
+                    onTapDown: (_) =>
+                        setState(() => _recallPeeking = true),
+                    onTapUp: (_) =>
+                        setState(() => _recallPeeking = false),
+                    onTapCancel: () =>
+                        setState(() => _recallPeeking = false),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 12),
+                      decoration: BoxDecoration(
+                        gradient: AppColors.brandGradient,
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          '정답 보기 (누르고 있기)',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
+                IconButton(
+                  onPressed: _currentIndex < _sentences.length - 1
+                      ? _onNext
+                      : null,
+                  icon: const Icon(Icons.arrow_forward_ios, size: 18),
+                  color: AppColors.textPrimary,
+                  disabledColor: Colors.white10,
+                ),
+              ],
             ),
           const SizedBox(height: 16),
           const Divider(color: Colors.white10, height: 1),
           const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              IconButton(
-                onPressed: _currentIndex > 0 ? _onPrev : null,
-                icon: const Icon(Icons.arrow_back_ios, size: 18),
-                color: AppColors.textPrimary,
-                disabledColor: Colors.white10,
-              ),
-              IconButton(
-                onPressed: _currentIndex < _sentences.length - 1
-                    ? _onNext
-                    : null,
-                icon: const Icon(Icons.arrow_forward_ios, size: 18),
-                color: AppColors.textPrimary,
-                disabledColor: Colors.white10,
-              ),
-            ],
-          ),
+          if (_recallRevealed)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                IconButton(
+                  onPressed: _currentIndex > 0 ? _onPrev : null,
+                  icon: const Icon(Icons.arrow_back_ios, size: 18),
+                  color: AppColors.textPrimary,
+                  disabledColor: Colors.white10,
+                ),
+                IconButton(
+                  onPressed: _currentIndex < _sentences.length - 1
+                      ? _onNext
+                      : null,
+                  icon: const Icon(Icons.arrow_forward_ios, size: 18),
+                  color: AppColors.textPrimary,
+                  disabledColor: Colors.white10,
+                ),
+              ],
+            ),
         ],
       ),
     );
@@ -1780,7 +1846,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
                   onChanged: (v) => setDialog(() => localRate = v),
                 ),
                 const SizedBox(height: 16),
-                const Text('입툭튀 채점 방식',
+                const Text('말툭튀 채점 방식',
                     style: TextStyle(
                         color: AppColors.textMuted, fontSize: 12)),
                 RadioListTile<RecallScoringMode>(
