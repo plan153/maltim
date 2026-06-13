@@ -80,6 +80,13 @@ class SpeechService {
       }
     }
 
+    final effectiveLocale = localeId ?? appLanguage.sttLocale;
+    // 웹 Web Speech API는 BCP-47 하이픈 형식(예: ja-JP)을 요구한다.
+    // sttLocale은 네이티브(Android Locale) 표기인 언더스코어 형식(ja_JP)이라
+    // 웹에서는 인식 언어가 적용되지 않아 STT가 제대로 동작하지 않는 문제가 있었다.
+    final webLocale =
+        kIsWeb ? effectiveLocale.replaceAll('_', '-') : effectiveLocale;
+
     await _speech.listen(
       onResult: (result) {
         onResult(result.recognizedWords, result.finalResult);
@@ -90,7 +97,7 @@ class SpeechService {
       pauseFor: kIsWeb
           ? const Duration(milliseconds: 1800)
           : const Duration(milliseconds: 1500),
-      localeId: localeId ?? appLanguage.sttLocale,
+      localeId: webLocale,
       cancelOnError: false,
       partialResults: true,
     );
