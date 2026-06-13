@@ -22,6 +22,13 @@ class SentenceStorageService {
       translation: '학교에 갑니다',
       vocabulary: [
         VocabEntry(
+          word: 'がっこう',
+          kanji: '学校',
+          reading: '각꼬우',
+          meaning: '학교',
+          pos: '명사',
+        ),
+        VocabEntry(
           word: 'いきます',
           kanji: '行きます',
           reading: '이키마스',
@@ -47,6 +54,13 @@ class SentenceStorageService {
       translation: '집에 돌아갑니다',
       vocabulary: [
         VocabEntry(
+          word: 'うち',
+          kanji: '家',
+          reading: '우치',
+          meaning: '집',
+          pos: '명사',
+        ),
+        VocabEntry(
           word: 'かえります',
           kanji: '帰ります',
           reading: '카에리마스',
@@ -71,6 +85,13 @@ class SentenceStorageService {
       chunks: ['まいにち', 'いきます'],
       translation: '매일 갑니다',
       vocabulary: [
+        VocabEntry(
+          word: 'まいにち',
+          kanji: '毎日',
+          reading: '마이니치',
+          meaning: '매일',
+          pos: '명사',
+        ),
         VocabEntry(
           word: 'いきます',
           kanji: '行きます',
@@ -98,6 +119,13 @@ class SentenceStorageService {
       translation: '일을 합니다',
       vocabulary: [
         VocabEntry(
+          word: 'しごと',
+          kanji: '仕事',
+          reading: '시고토',
+          meaning: '일, 직장',
+          pos: '명사',
+        ),
+        VocabEntry(
           word: 'します',
           kanji: '',
           reading: '시마스',
@@ -123,6 +151,13 @@ class SentenceStorageService {
       translation: '공부를 합니다',
       vocabulary: [
         VocabEntry(
+          word: 'べんきょう',
+          kanji: '勉強',
+          reading: '벤쿄우',
+          meaning: '공부',
+          pos: '명사',
+        ),
+        VocabEntry(
           word: 'します',
           kanji: '',
           reading: '시마스',
@@ -147,6 +182,13 @@ class SentenceStorageService {
       chunks: ['しごとに', 'いきます'],
       translation: '일하러 갑니다',
       vocabulary: [
+        VocabEntry(
+          word: 'しごと',
+          kanji: '仕事',
+          reading: '시고토',
+          meaning: '일, 직장',
+          pos: '명사',
+        ),
         VocabEntry(
           word: 'いきます',
           kanji: '行きます',
