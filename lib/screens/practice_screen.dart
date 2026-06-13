@@ -135,6 +135,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
         return s.text;
       case PracticeLevel.word:
         return s.text; // 일본어 미지원 — 방어적 폴백
+      case PracticeLevel.recall:
+        return s.text;
     }
   }
 
@@ -147,6 +149,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
         return s.chunks.isNotEmpty ? s.chunks : [s.text];
       case PracticeLevel.chunk:
       case PracticeLevel.word:
+      case PracticeLevel.recall:
         return [_target];
     }
   }
