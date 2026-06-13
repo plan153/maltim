@@ -99,7 +99,11 @@ class SpeechService {
           : const Duration(milliseconds: 2000),
       localeId: webLocale,
       listenOptions: SpeechListenOptions(
-        cancelOnError: true,
+        // iOS Safari는 인식 시작 직후 "no-speech" 오류를 자주 발생시키는데,
+        // cancelOnError: true이면 이때 인식 자체가 즉시 취소되어 결과가
+        // 전혀 나오지 않는다(인식이 너무 빨리 끝나는 현상의 원인). 오류가
+        // 나도 계속 듣도록 false로 되돌린다.
+        cancelOnError: false,
         partialResults: true,
         // dictation 모드가 confirmation/search보다 문장 전체를 끝까지
         // 듣고 인식하는 데 더 적합하다.
