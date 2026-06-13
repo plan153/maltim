@@ -67,7 +67,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
 
   // 입툭튀(장면 회상) 모드
   RecallDirection _recallDirection = RecallDirection.jpToKo;
-  RecallScoringMode _recallScoringMode = RecallScoringMode.selfRating;
+  RecallScoringMode _recallScoringMode = RecallScoringMode.keyword;
   bool _recallRevealed = false;
   bool _isRecallListening = false;
   String _recallRecognized = '';
@@ -1000,9 +1000,11 @@ class _PracticeScreenState extends State<PracticeScreen> {
             ],
           ),
           const SizedBox(height: 4),
-          const Text(
-            '장면을 떠올려 바로 말해보세요',
-            style: TextStyle(
+          Text(
+            isJpToKo
+                ? '일본어 문장을 듣고, 한국어로 바로 말해보세요'
+                : '한국어 문장을 듣고, 일본어로 바로 말해보세요',
+            style: const TextStyle(
               color: AppColors.accent,
               fontSize: 13,
               fontWeight: FontWeight.bold,
