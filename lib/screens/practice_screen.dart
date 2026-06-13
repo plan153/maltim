@@ -987,6 +987,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
                 style:
                     const TextStyle(color: AppColors.textMuted, fontSize: 12),
               ),
+              _recallDirectionToggle(),
             ],
           ),
           const SizedBox(height: 4),
@@ -998,8 +999,6 @@ class _PracticeScreenState extends State<PracticeScreen> {
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 16),
-          _recallDirectionToggle(),
           const SizedBox(height: 16),
           // 원본 문장 (앱이 읽어주는 문장)
           Container(
@@ -1029,28 +1028,33 @@ class _PracticeScreenState extends State<PracticeScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          GestureDetector(
-            onTap: _isPlaying ? null : _speakRecallSource,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: AppColors.accent.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(24),
-                border:
-                    Border.all(color: AppColors.accent.withValues(alpha: 0.4)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.volume_up,
-                      color: AppColors.accent, size: 18),
-                  const SizedBox(width: 6),
-                  Text(_t('listen'),
-                      style: const TextStyle(
-                          color: AppColors.accent,
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold)),
-                ],
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(24),
+              onTap: _isPlaying ? null : _speakRecallSource,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                      color: AppColors.accent.withValues(alpha: 0.4)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.volume_up,
+                        color: AppColors.accent, size: 18),
+                    const SizedBox(width: 6),
+                    Text(_t('listen'),
+                        style: const TextStyle(
+                            color: AppColors.accent,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold)),
+                  ],
+                ),
               ),
             ),
           ),
@@ -1145,30 +1149,38 @@ class _PracticeScreenState extends State<PracticeScreen> {
   }
 
   Widget _recallDirectionToggle() {
-    return Row(
-      children: [
-        Expanded(
-          child: _recallToggleChip(
-            '일본어 → 한국어',
-            _recallDirection == RecallDirection.jpToKo,
-            () => setState(() {
-              _recallDirection = RecallDirection.jpToKo;
-              _resetSession();
-            }),
+    final isJpToKo = _recallDirection == RecallDirection.jpToKo;
+    final label = isJpToKo ? '일 → 한' : '한 → 일';
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => setState(() {
+          _recallDirection =
+              isJpToKo ? RecallDirection.koToJp : RecallDirection.jpToKo;
+          _resetSession();
+        }),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: AppColors.accent.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.accent.withValues(alpha: 0.4)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(label,
+                  style: const TextStyle(
+                      color: AppColors.accent,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold)),
+              const SizedBox(width: 4),
+              const Icon(Icons.swap_horiz, color: AppColors.accent, size: 16),
+            ],
           ),
         ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _recallToggleChip(
-            '한국어 → 일본어',
-            _recallDirection == RecallDirection.koToJp,
-            () => setState(() {
-              _recallDirection = RecallDirection.koToJp;
-              _resetSession();
-            }),
-          ),
-        ),
-      ],
+      ),
     );
   }
 
