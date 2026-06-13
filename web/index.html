@@ -61,13 +61,18 @@
     };
 
     // 마이크 듣기 시작/종료 시 호출되어 TTS 출력 게인을 보정한다.
+    // gain.value를 즉시 바꾸면 연속듣기에서 마이크가 켜졌다 꺼질 때마다
+    // 볼륨이 "뚝뚝" 튀는 것처럼 들린다. setTargetAtTime으로 부드럽게 전환한다.
     window.__micActive = false;
     window.setMicActiveWeb = function(active) {
       window.__micActive = !!active;
-      if (window.__ttsGainNode) {
-        window.__ttsGainNode.gain.value = window.__micActive
+      const gainNode = window.__ttsGainNode;
+      const ctx = window.__ttsAudioCtx;
+      if (gainNode && ctx) {
+        const target = window.__micActive
             ? window.MIC_DUCK_COMPENSATION
             : 1.0;
+        gainNode.gain.setTargetAtTime(target, ctx.currentTime, 0.15);
       }
     };
 
