@@ -358,7 +358,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
     // 초기화되지 않은 상태로 남을 수 있어, cancel()로 즉시 폐기한다.
     if (_speechService.isListening) {
       await _speechService.cancelListening();
-      await Future.delayed(const Duration(milliseconds: 300));
+      await Future.delayed(const Duration(milliseconds: 100));
     }
 
     TtsService.setMicActive(true);
@@ -434,7 +434,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
 
     if (_speechService.isListening) {
       await _speechService.cancelListening();
-      await Future.delayed(const Duration(milliseconds: 300));
+      await Future.delayed(const Duration(milliseconds: 100));
     }
 
     TtsService.setMicActive(true);
