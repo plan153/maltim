@@ -35,7 +35,7 @@ class SentenceStorageService {
           meaning: '갑니다',
           pos: '동사(1군 · 行く)',
           forms: [
-            'いく(사전형) - 가다',
+            'いく(기본형) - 가다',
             'いきます(현재) - 갑니다',
             'いきました(과거) - 갔습니다',
             'いきません(부정) - 가지 않습니다',
@@ -67,7 +67,7 @@ class SentenceStorageService {
           meaning: '돌아갑니다',
           pos: '동사(1군 · 帰る)',
           forms: [
-            'かえる(사전형) - 돌아가다',
+            'かえる(기본형) - 돌아가다',
             'かえります(현재) - 돌아갑니다',
             'かえりました(과거) - 돌아갔습니다',
             'かえりません(부정) - 돌아가지 않습니다',
@@ -99,7 +99,7 @@ class SentenceStorageService {
           meaning: '갑니다',
           pos: '동사(1군 · 行く)',
           forms: [
-            'いく(사전형) - 가다',
+            'いく(기본형) - 가다',
             'いきます(현재) - 갑니다',
             'いきました(과거) - 갔습니다',
             'いきません(부정) - 가지 않습니다',
@@ -132,7 +132,7 @@ class SentenceStorageService {
           meaning: '합니다',
           pos: '동사(불규칙 · する)',
           forms: [
-            'する(사전형) - 하다',
+            'する(기본형) - 하다',
             'します(현재) - 합니다',
             'しました(과거) - 했습니다',
             'しません(부정) - 하지 않습니다',
@@ -164,7 +164,7 @@ class SentenceStorageService {
           meaning: '합니다',
           pos: '동사(불규칙 · する)',
           forms: [
-            'する(사전형) - 하다',
+            'する(기본형) - 하다',
             'します(현재) - 합니다',
             'しました(과거) - 했습니다',
             'しません(부정) - 하지 않습니다',
@@ -196,7 +196,7 @@ class SentenceStorageService {
           meaning: '갑니다',
           pos: '동사(1군 · 行く)',
           forms: [
-            'いく(사전형) - 가다',
+            'いく(기본형) - 가다',
             'いきます(현재) - 갑니다',
             'いきました(과거) - 갔습니다',
             'いきません(부정) - 가지 않습니다',
@@ -759,20 +759,20 @@ class SentenceStorageService {
       chunks: ['まって', 'ください、いきます'],
       translation: '기다려 주세요, 갑니다',
     ),
-    // ─ Day 22 · 기본형(사전형) 첫 등장 ─
+    // ─ Day 22 · 기본형 첫 등장 ─
     PracticeSentence(
       id: 'd22_1',
       text: 'いく、いきます',
       reading: '이쿠 → 이키마스',
-      category: 'Day 22 · 기본형(사전형) 첫 등장',
+      category: 'Day 22 · 기본형 첫 등장',
       chunks: ['いく、いきます'],
-      translation: '가다 → 갑니다 (사전형 → 마스형)',
+      translation: '가다 → 갑니다 (기본형 → 높임형)',
     ),
     PracticeSentence(
       id: 'd22_2',
       text: 'たべる、たべます',
       reading: '타베루 → 타베마스',
-      category: 'Day 22 · 기본형(사전형) 첫 등장',
+      category: 'Day 22 · 기본형 첫 등장',
       chunks: ['たべる、たべます'],
       translation: '먹다 → 먹습니다',
     ),
@@ -780,7 +780,7 @@ class SentenceStorageService {
       id: 'd22_3',
       text: 'する、します',
       reading: '스루 → 시마스',
-      category: 'Day 22 · 기본형(사전형) 첫 등장',
+      category: 'Day 22 · 기본형 첫 등장',
       chunks: ['する、します'],
       translation: '하다 → 합니다',
     ),

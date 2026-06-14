@@ -53,7 +53,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
   PronunciationResult? _pronunciationResult;
   String _recognizedText = '';
   bool _showTranslation = true;
-  bool _showReading = true;
+  bool _showReading = false;
   bool _showVocab = false;
 
   // 결과
