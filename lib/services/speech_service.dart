@@ -188,6 +188,12 @@ class SpeechService {
     await _speech.cancel();
   }
 
+  /// 연속듣기 루프 시작 전 마이크 스트림을 미리 초기화한다 (Azure STT cold-start 방지).
+  /// getUserMedia 한 번 호출 후 즉시 해제하면 이후 Azure SDK의 마이크 획득이 빠르다.
+  Future<void> prewarmAzureStt() async {
+    if (!kIsWeb) return;
+    await WebSttHelper.prewarmMic();
+  }
   /// Azure 발음 평가(Pronunciation Assessment)로 한 번 인식한다.
   /// [referenceText]를 기준으로 정확도/유창성/완성도/종합 점수를 함께 반환한다.
   /// 웹에서만 지원되며, 그 외 환경에서는 supported=false를 반환한다.

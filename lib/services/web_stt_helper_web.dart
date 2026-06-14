@@ -1,6 +1,9 @@
 import 'dart:js_interop';
 
 /// index.html의 전역 JS 함수 바인딩 (dart:js_interop).
+@JS('prewarmMicWeb')
+external JSPromise<JSAny?> _prewarmMicWeb();
+
 @JS('startAzureSttWeb')
 external JSPromise<JSAny?> _startAzureSttWeb(
     String key, String region, String locale, String referenceText);
@@ -15,6 +18,12 @@ external void _stopAzureSttWeb();
 /// completenessScore, pronScore } | null, "error": "..." | undefined }
 class WebSttHelper {
   static const bool isSupported = true;
+
+  static Future<void> prewarmMic() async {
+    try {
+      await _prewarmMicWeb().toDart;
+    } catch (e) {}
+  }
 
   static Future<String> recognizeWithPronunciation(
     String key,

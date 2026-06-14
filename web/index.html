@@ -203,6 +203,15 @@
     // 함께 계산한다. 결과는 JSON 문자열로 resolve: { text, pronunciation, error }
     window.__azureSttActive = null;
 
+    // 연속듣기 시작 전 마이크 스트림을 미리 획득했다가 바로 해제한다.
+    // 이후 SpeechSDK.AudioConfig.fromDefaultMicrophoneInput() 호출 시
+    // 브라우저 오디오 서브시스템이 이미 준비된 상태라 cold-start 지연이 없다.
+    window.prewarmMicWeb = async function() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach(track => track.stop());
+      } catch (e) {}
+    };
     window.stopAzureSttWeb = function() {
       const entry = window.__azureSttActive;
       window.__azureSttActive = null;

@@ -630,6 +630,12 @@ class _PracticeScreenState extends State<PracticeScreen> {
     // 놓치는 경우가 있다(두 번째 문장부터는 정상 동작).
     if (!_useDemoMode) {
       await _speechService.initialize();
+      // 웹+Azure 환경: getUserMedia를 미리 한 번 호출해 마이크 스트림을 예열한다.
+      // 이렇게 해두면 첫 startAzureSttWeb 호출 시 마이크 획득 지연이 없어
+      // 첫 문장 발화를 놓치지 않는다.
+      if (kIsWeb && TtsService.isAzureEnabled) {
+        await _speechService.prewarmAzureStt();
+      }
     }
 
     for (var i = _currentIndex; i < _sentences.length; i++) {

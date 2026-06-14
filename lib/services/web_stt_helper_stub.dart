@@ -2,6 +2,8 @@
 class WebSttHelper {
   static const bool isSupported = false;
 
+  static Future<void> prewarmMic() async {}
+
   static Future<String> recognizeWithPronunciation(
     String key,
     String region,
