@@ -232,6 +232,20 @@ class SpeechService {
     if (kIsWeb) WebSttHelper.stop();
   }
 
+  /// Azure STT 마이크 스트림/인식기를 미리 준비한다. TTS 재생 중에 호출해
+  /// recognizeOnceAsync 시작 지연(첫 문장 인식 실패의 주 원인)을 줄인다.
+  void prewarmPronunciationAssessment({String? localeId}) {
+    if (!kIsWeb || !WebSttHelper.isSupported || !TtsService.isAzureEnabled) {
+      return;
+    }
+    final effectiveLocale = (localeId ?? appLanguage.sttLocale).replaceAll('_', '-');
+    try {
+      WebSttHelper.prewarm(TtsService.azureKey, TtsService.azureRegion, effectiveLocale);
+    } catch (e) {
+      debugPrint('Azure STT 사전 준비 오류: $e');
+    }
+  }
+
   /// 데모 모드용 가상 발화 생성.
   /// 일본어는 띄어쓰기가 없으므로 문자 단위로 정확도를 시뮬레이션한다.
   void simulateSpeechInput({

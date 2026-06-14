@@ -300,6 +300,15 @@ class _PracticeScreenState extends State<PracticeScreen> {
   /// 원본 문장을 방향에 맞는 음성으로 재생한다.
   Future<void> _speakRecallSource() async {
     await TtsService.unlockAudioEngine();
+    // TTS 재생 시간 동안 STT 마이크 스트림을 미리 준비해 둔다. 그렇지 않으면
+    // 재생이 끝난 직후 STT 시작 시 마이크 초기화(getUserMedia) 지연이 발생해
+    // 발화 초반을 놓치고 인식이 실패하는 경우가 많았다(특히 첫 문장).
+    if (kIsWeb && TtsService.isAzureEnabled) {
+      final sttLocale = _recallDirection == RecallDirection.jpToKo
+          ? 'ko-KR'
+          : appLanguage.sttLocale;
+      _speechService.prewarmPronunciationAssessment(localeId: sttLocale);
+    }
     if (_recallDirection == RecallDirection.koToJp) {
       await TtsService.speak(_recallSourceText,
           voice: 'ko-KR-SunHiNeural', locale: 'ko-KR');
