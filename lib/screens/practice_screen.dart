@@ -1231,31 +1231,37 @@ class _PracticeScreenState extends State<PracticeScreen> {
           const SizedBox(height: 16),
           // 정답 (목표 문장)
           if (_recallRevealed || _recallPeeking) ...[
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.accent.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                    color: AppColors.accent.withValues(alpha: 0.3)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(targetLabel,
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.0, end: 1.0),
+              duration: const Duration(milliseconds: 400),
+              builder: (context, value, child) =>
+                  Opacity(opacity: value, child: child),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.accent.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                      color: AppColors.accent.withValues(alpha: 0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(targetLabel,
+                        style: const TextStyle(
+                            color: AppColors.textMuted, fontSize: 11)),
+                    const SizedBox(height: 6),
+                    Text(
+                      _recallTargetText,
                       style: const TextStyle(
-                          color: AppColors.textMuted, fontSize: 11)),
-                  const SizedBox(height: 6),
-                  Text(
-                    _recallTargetText,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      height: 1.4,
+                        color: AppColors.textPrimary,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        height: 1.4,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 16),
