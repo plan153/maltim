@@ -12,6 +12,4 @@ class WebSttHelper {
   }
 
   static void stop() {}
-
-  static bool prewarm(String key, String region, String locale) => false;
 }

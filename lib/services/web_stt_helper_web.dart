@@ -8,9 +8,6 @@ external JSPromise<JSAny?> _startAzureSttWeb(
 @JS('stopAzureSttWeb')
 external void _stopAzureSttWeb();
 
-@JS('prewarmAzureSttWeb')
-external bool _prewarmAzureSttWeb(String key, String region, String locale);
-
 /// 웹 전용 Azure STT + 발음 평가(Pronunciation Assessment) 헬퍼.
 ///
 /// [recognizeWithPronunciation]은 한 번의 발화를 인식하고, 결과를 JSON 문자열로
@@ -31,14 +28,5 @@ class WebSttHelper {
 
   static void stop() {
     _stopAzureSttWeb();
-  }
-
-  /// TTS 재생 중 미리 호출해 마이크 스트림/인식기를 준비한다.
-  static bool prewarm(String key, String region, String locale) {
-    try {
-      return _prewarmAzureSttWeb(key, region, locale);
-    } catch (e) {
-      return false;
-    }
   }
 }

@@ -162,6 +162,11 @@
           synthesizer.speakSsmlAsync(
             ssml,
             result => {
+              // 이 합성 요청이 이미 취소/종료되었다면(다른 재생이 이미 시작됨)
+              // 응답이 늦게 도착해도 오디오 엘리먼트를 건드리지 않는다.
+              // (그렇지 않으면 이전 요청의 음성이 새 재생을 덮어써 다른
+              // 언어의 음성이 재생되는 문제가 있었다.)
+              if (entry.done) return;
               if (result.reason === SpeechSDK.ResultReason.SynthesizingAudioCompleted &&
                   result.audioData && result.audioData.byteLength > 0) {
                 try {
@@ -182,7 +187,10 @@
                 finish(false);
               }
             },
-            error => { finish(false); }
+            error => {
+              if (entry.done) return;
+              finish(false);
+            }
           );
         } catch (e) {
           reject("Azure Speech SDK error: " + e.toString());
@@ -195,51 +203,17 @@
     // 함께 계산한다. 결과는 JSON 문자열로 resolve: { text, pronunciation, error }
     window.__azureSttActive = null;
 
-    // 인식기/마이크 스트림 재사용 캐시. AudioConfig.fromDefaultMicrophoneInput()을
-    // 매 발화마다 새로 만들면(=매번 getUserMedia 재요청) (1) 첫 문장에서 마이크
-    // 초기화 지연으로 발화 초반을 놓쳐 인식이 실패하고, (2) 연속듣기에서 두 번째
-    // 문장부터 새 마이크 스트림 요청이 멈춰버려 인식 자체가 시작되지 않으며,
-    // (3) 마이크 스트림이 반복적으로 생성/해제되며 브라우저의 출력 음량 덕킹
-    // 상태가 불안정해지는 문제가 있었다. 같은 로케일이면 recognizer(및 마이크
-    // 스트림)를 재사용해 recognizeOnceAsync만 다시 호출한다.
-    window.__azureSttCache = null; // { recognizer, locale }
-
     window.stopAzureSttWeb = function() {
       const entry = window.__azureSttActive;
       window.__azureSttActive = null;
       if (entry && entry.recognizer) {
         try { entry.recognizer.close(); } catch (e) {}
-        if (window.__azureSttCache && window.__azureSttCache.recognizer === entry.recognizer) {
-          window.__azureSttCache = null;
-        }
-      }
-    };
-
-    // STT 시작 전(TTS 재생 중)에 미리 호출해 마이크 스트림/인식기를 준비해
-    // 둔다. 첫 호출의 getUserMedia 지연이 TTS 재생 시간과 겹쳐 첫 문장 인식
-    // 실패를 줄인다.
-    window.prewarmAzureSttWeb = function(key, region, locale) {
-      try {
-        if (typeof SpeechSDK === 'undefined') return false;
-        if (window.__azureSttCache && window.__azureSttCache.locale === locale) {
-          return true;
-        }
-        if (window.__azureSttCache) {
-          try { window.__azureSttCache.recognizer.close(); } catch (e) {}
-          window.__azureSttCache = null;
-        }
-        const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(key, region);
-        speechConfig.speechRecognitionLanguage = locale;
-        const audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
-        const recognizer = new SpeechSDK.SpeechRecognizer(speechConfig, audioConfig);
-        window.__azureSttCache = { recognizer: recognizer, locale: locale };
-        return true;
-      } catch (e) {
-        return false;
       }
     };
 
     window.startAzureSttWeb = function(key, region, locale, referenceText) {
+      window.stopAzureSttWeb();
+
       return new Promise((resolve, reject) => {
         try {
           if (typeof SpeechSDK === 'undefined') {
@@ -247,20 +221,10 @@
             return;
           }
 
-          let recognizer;
-          if (window.__azureSttCache && window.__azureSttCache.locale === locale) {
-            recognizer = window.__azureSttCache.recognizer;
-          } else {
-            if (window.__azureSttCache) {
-              try { window.__azureSttCache.recognizer.close(); } catch (e) {}
-              window.__azureSttCache = null;
-            }
-            const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(key, region);
-            speechConfig.speechRecognitionLanguage = locale;
-            const audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
-            recognizer = new SpeechSDK.SpeechRecognizer(speechConfig, audioConfig);
-            window.__azureSttCache = { recognizer: recognizer, locale: locale };
-          }
+          const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(key, region);
+          speechConfig.speechRecognitionLanguage = locale;
+          const audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
+          const recognizer = new SpeechSDK.SpeechRecognizer(speechConfig, audioConfig);
 
           if (referenceText && referenceText.trim().length > 0) {
             try {
@@ -277,17 +241,11 @@
           const entry = { recognizer: recognizer, done: false };
           window.__azureSttActive = entry;
 
-          const invalidateCache = () => {
-            if (window.__azureSttCache && window.__azureSttCache.recognizer === recognizer) {
-              window.__azureSttCache = null;
-            }
-          };
-
           const finish = (val) => {
             if (entry.done) return;
             entry.done = true;
             if (window.__azureSttActive === entry) window.__azureSttActive = null;
-            // 마이크 스트림 재사용을 위해 recognizer는 닫지 않고 캐시에 유지한다.
+            try { recognizer.close(); } catch (e) {}
             resolve(val);
           };
 
@@ -308,16 +266,10 @@
               } else if (result.reason === SpeechSDK.ResultReason.NoMatch) {
                 finish(JSON.stringify({ text: '', pronunciation: null }));
               } else {
-                // Canceled 등 - 인식기 상태가 손상되었을 수 있으므로 캐시를
-                // 무효화해 다음 호출에서 새 recognizer를 생성하도록 한다.
-                invalidateCache();
-                try { recognizer.close(); } catch (e) {}
                 finish(JSON.stringify({ text: '', pronunciation: null, error: 'recognition_failed' }));
               }
             },
             error => {
-              invalidateCache();
-              try { recognizer.close(); } catch (e) {}
               finish(JSON.stringify({ text: '', pronunciation: null, error: String(error) }));
             }
           );
