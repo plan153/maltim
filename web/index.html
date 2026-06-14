@@ -218,10 +218,23 @@
       if (entry && entry.recognizer) {
         try { entry.recognizer.close(); } catch (e) {}
       }
+      // STT가 외부에서 중단된 경우에도 TTS AudioContext 재개
+      const ttsCtx = window.__ttsAudioCtx;
+      if (ttsCtx && ttsCtx.state === 'suspended') {
+        ttsCtx.resume().catch(() => {});
+      }
     };
 
-    window.startAzureSttWeb = function(key, region, locale, referenceText) {
+    window.startAzureSttWeb = async function(key, region, locale, referenceText) {
       window.stopAzureSttWeb();
+
+      // TTS AudioContext를 일시 중지한다.
+      // AudioContext가 running 상태이면 브라우저가 getUserMedia 마이크 스트림에
+      // AudioContext 출력을 기준으로 AEC를 적용해 사용자 음성이 소거될 수 있다.
+      const ttsCtx = window.__ttsAudioCtx;
+      if (ttsCtx && ttsCtx.state === 'running') {
+        try { await ttsCtx.suspend(); } catch (e) {}
+      }
 
       return new Promise((resolve, reject) => {
         try {
@@ -255,6 +268,11 @@
             entry.done = true;
             if (window.__azureSttActive === entry) window.__azureSttActive = null;
             try { recognizer.close(); } catch (e) {}
+            // STT 완료 후 TTS AudioContext 재개
+            const ctx = window.__ttsAudioCtx;
+            if (ctx && ctx.state === 'suspended') {
+              ctx.resume().catch(() => {});
+            }
             resolve(val);
           };
 
@@ -273,16 +291,31 @@
                 } catch (e) {}
                 finish(JSON.stringify({ text: result.text, pronunciation: pronunciation }));
               } else if (result.reason === SpeechSDK.ResultReason.NoMatch) {
-                finish(JSON.stringify({ text: '', pronunciation: null }));
+                // 상세 NoMatch 사유 포함 (진단용)
+                let noMatchReason = 'unknown';
+                try {
+                  const d = SpeechSDK.NoMatchDetails.fromResult(result);
+                  noMatchReason = d ? String(d.reason) : 'unknown';
+                } catch (e) {}
+                finish(JSON.stringify({ text: '', pronunciation: null, error: 'no_match:' + noMatchReason }));
               } else {
-                finish(JSON.stringify({ text: '', pronunciation: null, error: 'recognition_failed' }));
+                // Canceled 등 — 상세 취소 사유 포함 (진단용)
+                let detail = 'reason_' + result.reason;
+                try {
+                  const d = SpeechSDK.CancellationDetails.fromResult(result);
+                  if (d) detail = 'canceled:code' + d.ErrorCode + ':' + (d.errorDetails || '');
+                } catch (e) {}
+                finish(JSON.stringify({ text: '', pronunciation: null, error: detail }));
               }
             },
             error => {
-              finish(JSON.stringify({ text: '', pronunciation: null, error: String(error) }));
+              finish(JSON.stringify({ text: '', pronunciation: null, error: 'sdk_err:' + String(error) }));
             }
           );
         } catch (e) {
+          // AudioContext가 suspend된 상태라면 여기서도 재개
+          const ctx = window.__ttsAudioCtx;
+          if (ctx && ctx.state === 'suspended') { ctx.resume().catch(() => {}); }
           reject("Azure STT error: " + e.toString());
         }
       });

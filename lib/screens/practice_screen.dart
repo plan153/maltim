@@ -408,8 +408,10 @@ class _PracticeScreenState extends State<PracticeScreen> {
     // 상태만 표시될 뿐 실제로는 전혀 인식하지 못한다. Azure STT가 설정되어
     // 있으면 REST 기반 Azure 인식을 우선 사용해 이 문제를 피한다.
     if (kIsWeb && TtsService.isAzureEnabled) {
+      // 말툭튀는 키워드 채점만 사용하므로 PA(발음 평가) config 불필요.
+      // referenceText를 비워 PA config를 건너뛴다.
       final result = await _speechService.recognizeWithPronunciation(
-        referenceText: _recallTargetText,
+        referenceText: '',
         localeId: localeId,
       );
       if (result.supported) {
@@ -420,6 +422,9 @@ class _PracticeScreenState extends State<PracticeScreen> {
           if (result.text.isNotEmpty) _recallRevealed = true;
           _isRecallListening = false;
         });
+        if (result.text.isEmpty && result.error != null) {
+          debugPrint('[말툭튀 STT 오류] ${result.error}');
+        }
         if (_recallScoringMode == RecallScoringMode.keyword &&
             result.text.isNotEmpty) {
           _recordRecallScore(_recallKeywordScore);
@@ -512,12 +517,16 @@ class _PracticeScreenState extends State<PracticeScreen> {
     } else if (kIsWeb && TtsService.isAzureEnabled) {
       // iOS Safari 등에서 Web Speech API가 동작하지 않는 문제를 피하기 위해
       // Azure STT를 우선 사용한다 (단발 인식, _toggleRecallListening과 동일).
+      // 말툭튀는 PA(발음 평가) 불필요 → referenceText: '' 로 PA config 생략.
       final result = await _speechService.recognizeWithPronunciation(
-        referenceText: _recallTargetText,
+        referenceText: '',
         localeId: localeId,
       );
       if (result.supported) {
         if (mounted) {
+          if (result.text.isEmpty && result.error != null) {
+            debugPrint('[말툭튀 연속 STT 오류] ${result.error}');
+          }
           setState(() {
             _recallRecognized = result.text;
             if (result.text.isNotEmpty) _recallRevealed = true;
