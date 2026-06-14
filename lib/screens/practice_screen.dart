@@ -403,6 +403,32 @@ class _PracticeScreenState extends State<PracticeScreen> {
       return;
     }
 
+    // iOS Safari 등 webkitSpeechRecognition을 지원하지 않는 브라우저에서는
+    // 아래 Web Speech API 경로(_speechService.startListening)가 '듣는 중'
+    // 상태만 표시될 뿐 실제로는 전혀 인식하지 못한다. Azure STT가 설정되어
+    // 있으면 REST 기반 Azure 인식을 우선 사용해 이 문제를 피한다.
+    if (kIsWeb && TtsService.isAzureEnabled) {
+      final result = await _speechService.recognizeWithPronunciation(
+        referenceText: _recallTargetText,
+        localeId: localeId,
+      );
+      if (result.supported) {
+        if (!mounted) return;
+        TtsService.setMicActive(false);
+        setState(() {
+          _recallRecognized = result.text;
+          if (result.text.isNotEmpty) _recallRevealed = true;
+          _isRecallListening = false;
+        });
+        if (_recallScoringMode == RecallScoringMode.keyword &&
+            result.text.isNotEmpty) {
+          _recordRecallScore(_recallKeywordScore);
+        }
+        return;
+      }
+      // Azure 미지원 환경이면 아래 Web Speech API 경로로 폴백한다.
+    }
+
     try {
       await _speechService.startListening(
         localeId: localeId,
@@ -483,6 +509,64 @@ class _PracticeScreenState extends State<PracticeScreen> {
           }
         },
       );
+    } else if (kIsWeb && TtsService.isAzureEnabled) {
+      // iOS Safari 등에서 Web Speech API가 동작하지 않는 문제를 피하기 위해
+      // Azure STT를 우선 사용한다 (단발 인식, _toggleRecallListening과 동일).
+      final result = await _speechService.recognizeWithPronunciation(
+        referenceText: _recallTargetText,
+        localeId: localeId,
+      );
+      if (result.supported) {
+        if (mounted) {
+          setState(() {
+            _recallRecognized = result.text;
+            if (result.text.isNotEmpty) _recallRevealed = true;
+            _isRecallListening = false;
+          });
+          if (_recallScoringMode == RecallScoringMode.keyword &&
+              result.text.isNotEmpty) {
+            _recordRecallScore(_recallKeywordScore);
+          }
+        }
+        finish();
+      } else {
+        // Azure 미지원 환경이면 아래 Web Speech API 경로로 폴백한다.
+        try {
+          await _speechService.startListening(
+            localeId: localeId,
+            onResult: (text, isFinal) {
+              if (!mounted) return;
+              setState(() {
+                _recallRecognized = text;
+                if (text.isNotEmpty) _recallRevealed = true;
+                if (isFinal) _isRecallListening = false;
+              });
+              if (isFinal) {
+                TtsService.setMicActive(false);
+                if (_recallScoringMode == RecallScoringMode.keyword &&
+                    text.isNotEmpty) {
+                  _recordRecallScore(_recallKeywordScore);
+                }
+                finish();
+              }
+            },
+            onStatus: (status) {
+              if (status == 'notListening' || status == 'done') {
+                if (mounted && _isRecallListening) {
+                  setState(() => _isRecallListening = false);
+                }
+                TtsService.setMicActive(false);
+                finish();
+              }
+            },
+          );
+        } catch (e) {
+          debugPrint('말툭튀 연속 STT 오류: $e');
+          if (mounted) setState(() => _isRecallListening = false);
+          TtsService.setMicActive(false);
+          finish();
+        }
+      }
     } else {
       try {
         await _speechService.startListening(
@@ -1420,8 +1504,6 @@ class _PracticeScreenState extends State<PracticeScreen> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.swap_horiz, color: AppColors.accent, size: 16),
-              const SizedBox(width: 4),
               Text(switchLabel,
                   style: const TextStyle(
                       color: AppColors.accent,
