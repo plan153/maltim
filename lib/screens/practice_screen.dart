@@ -29,7 +29,10 @@ enum RecallScoringMode { selfRating, keyword }
 /// 들은 뒤(반복 1~3회/연속듣기) 마이크로 따라 말하면 문자 단위 채점 결과를
 /// 보여준다. 요미가나(읽기) 표시를 켜고 끌 수 있다.
 class PracticeScreen extends StatefulWidget {
-  const PracticeScreen({super.key});
+  const PracticeScreen({super.key, this.initialLevel});
+
+  /// 홈 화면에서 특정 단계(문장/문절/말툭튀)를 선택해 바로 이동할 때 사용.
+  final PracticeLevel? initialLevel;
 
   @override
   State<PracticeScreen> createState() => _PracticeScreenState();
@@ -83,6 +86,9 @@ class _PracticeScreenState extends State<PracticeScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialLevel != null) {
+      _level = widget.initialLevel!;
+    }
     _sequencer = PlaybackSequencer(
       speak: (t) => TtsService.speak(t),
       repeatGap: const Duration(milliseconds: 700),
@@ -1393,7 +1399,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
 
   Widget _recallDirectionToggle() {
     final isJpToKo = _recallDirection == RecallDirection.jpToKo;
-    final currentLabel = isJpToKo ? '일 → 한' : '한 → 일';
+    // 현재 상태가 아닌, 탭하면 전환될 다음 상태를 보여준다.
     final switchLabel = isJpToKo ? '한 → 일' : '일 → 한';
     return Material(
       color: Colors.transparent,
@@ -1414,21 +1420,13 @@ class _PracticeScreenState extends State<PracticeScreen> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(currentLabel,
-                      style: const TextStyle(
-                          color: AppColors.accent,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold)),
-                  Text('탭하면 $switchLabel로',
-                      style: const TextStyle(
-                          color: AppColors.textMuted, fontSize: 9)),
-                ],
-              ),
-              const SizedBox(width: 4),
               const Icon(Icons.swap_horiz, color: AppColors.accent, size: 16),
+              const SizedBox(width: 4),
+              Text(switchLabel,
+                  style: const TextStyle(
+                      color: AppColors.accent,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold)),
             ],
           ),
         ),

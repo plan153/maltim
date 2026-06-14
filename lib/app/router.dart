@@ -1,4 +1,5 @@
 import 'package:go_router/go_router.dart';
+import 'package:pronunciation_engine/pronunciation_engine.dart';
 
 import '../screens/admin_screen.dart';
 import '../screens/home_screen.dart';
@@ -11,7 +12,12 @@ final GoRouter appRouter = GoRouter(
   routes: [
     GoRoute(path: '/', builder: (context, state) => const HomeScreen()),
     GoRoute(
-        path: '/practice', builder: (context, state) => const PracticeScreen()),
+        path: '/practice',
+        builder: (context, state) => PracticeScreen(
+              initialLevel: state.extra is PracticeLevel
+                  ? state.extra as PracticeLevel
+                  : null,
+            )),
     GoRoute(
         path: '/progress', builder: (context, state) => const ProgressScreen()),
     GoRoute(path: '/admin', builder: (context, state) => const AdminScreen()),

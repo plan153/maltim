@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:pronunciation_engine/pronunciation_engine.dart';
 
 import '../app/theme.dart';
 import '../services/progress_service.dart';
 import '../services/translation_service.dart';
 import '../services/tts_service.dart';
 
-/// 앱 첫 화면. 브랜딩, 2단계 안내(문장/문절), 학습 현황 요약, 연습 시작 CTA.
+/// 앱 첫 화면. 브랜딩, 3단계 안내(문장/문절/말툭튀), 학습 현황 요약, 연습 시작 CTA.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -238,51 +239,64 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         const SizedBox(height: 14),
-        _levelRow(Icons.notes, '문장', _t('level_sentence_desc')),
+        _levelRow(Icons.notes, '문장', _t('level_sentence_desc'),
+            PracticeLevel.sentence),
         const SizedBox(height: 10),
-        _levelRow(Icons.view_agenda, '문절', _t('level_chunk_desc')),
+        _levelRow(Icons.view_agenda, '문절', _t('level_chunk_desc'),
+            PracticeLevel.chunk),
+        const SizedBox(height: 10),
+        _levelRow(Icons.lightbulb, '말툭튀', _t('level_recall_desc'),
+            PracticeLevel.recall),
       ],
     );
   }
 
-  Widget _levelRow(IconData icon, String title, String desc) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: AppTheme.panelDecoration(),
-      child: Row(
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: AppColors.accent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
+  Widget _levelRow(
+      IconData icon, String title, String desc, PracticeLevel level) {
+    return GestureDetector(
+      onTap: () {
+        TtsService.unlockAudioEngine();
+        context.push('/practice', extra: level).then((_) => _refresh());
+      },
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: AppTheme.panelDecoration(),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: AppColors.accent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: AppColors.accent, size: 22),
             ),
-            child: Icon(icon, color: AppColors.accent, size: 22),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  desc,
-                  style:
-                      const TextStyle(color: AppColors.textMuted, fontSize: 12),
-                ),
-              ],
+                  const SizedBox(height: 2),
+                  Text(
+                    desc,
+                    style: const TextStyle(
+                        color: AppColors.textMuted, fontSize: 12),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+            const Icon(Icons.chevron_right, color: AppColors.textMuted, size: 20),
+          ],
+        ),
       ),
     );
   }
