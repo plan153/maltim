@@ -198,9 +198,7 @@
       });
     };
 
-    // Azure STT + 발음 평가(Pronunciation Assessment).
-    // referenceText가 있으면 해당 문장을 기준으로 정확도/유창성/완성도/종합 점수를
-    // 함께 계산한다. 결과는 JSON 문자열로 resolve: { text, pronunciation, error }
+    // Azure STT. 결과는 JSON 문자열로 resolve: { text, error }
     window.__azureSttActive = null;
 
     // 연속듣기 시작 전 마이크 스트림을 미리 획득했다가 바로 해제한다.
@@ -225,7 +223,7 @@
       }
     };
 
-    window.startAzureSttWeb = async function(key, region, locale, referenceText) {
+    window.startAzureSttWeb = async function(key, region, locale) {
       window.stopAzureSttWeb();
 
       // TTS AudioContext를 일시 중지한다.
@@ -248,18 +246,6 @@
           const audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
           const recognizer = new SpeechSDK.SpeechRecognizer(speechConfig, audioConfig);
 
-          if (referenceText && referenceText.trim().length > 0) {
-            try {
-              const paConfig = new SpeechSDK.PronunciationAssessmentConfig(
-                referenceText,
-                SpeechSDK.PronunciationAssessmentGradingSystem.HundredMark,
-                SpeechSDK.PronunciationAssessmentGranularity.Phoneme,
-                true
-              );
-              paConfig.applyTo(recognizer);
-            } catch (e) {}
-          }
-
           const entry = { recognizer: recognizer, done: false };
           window.__azureSttActive = entry;
 
@@ -279,17 +265,7 @@
           recognizer.recognizeOnceAsync(
             result => {
               if (result.reason === SpeechSDK.ResultReason.RecognizedSpeech) {
-                let pronunciation = null;
-                try {
-                  const par = SpeechSDK.PronunciationAssessmentResult.fromResult(result);
-                  pronunciation = {
-                    accuracyScore: par.accuracyScore,
-                    fluencyScore: par.fluencyScore,
-                    completenessScore: par.completenessScore,
-                    pronScore: par.pronunciationScore
-                  };
-                } catch (e) {}
-                finish(JSON.stringify({ text: result.text, pronunciation: pronunciation }));
+                finish(JSON.stringify({ text: result.text }));
               } else if (result.reason === SpeechSDK.ResultReason.NoMatch) {
                 // 상세 NoMatch 사유 포함 (진단용)
                 let noMatchReason = 'unknown';
@@ -297,7 +273,7 @@
                   const d = SpeechSDK.NoMatchDetails.fromResult(result);
                   noMatchReason = d ? String(d.reason) : 'unknown';
                 } catch (e) {}
-                finish(JSON.stringify({ text: '', pronunciation: null, error: 'no_match:' + noMatchReason }));
+                finish(JSON.stringify({ text: '', error: 'no_match:' + noMatchReason }));
               } else {
                 // Canceled 등 — 상세 취소 사유 포함 (진단용)
                 let detail = 'reason_' + result.reason;
@@ -305,11 +281,11 @@
                   const d = SpeechSDK.CancellationDetails.fromResult(result);
                   if (d) detail = 'canceled:code' + d.ErrorCode + ':' + (d.errorDetails || '');
                 } catch (e) {}
-                finish(JSON.stringify({ text: '', pronunciation: null, error: detail }));
+                finish(JSON.stringify({ text: '', error: detail }));
               }
             },
             error => {
-              finish(JSON.stringify({ text: '', pronunciation: null, error: 'sdk_err:' + String(error) }));
+              finish(JSON.stringify({ text: '', error: 'sdk_err:' + String(error) }));
             }
           );
         } catch (e) {

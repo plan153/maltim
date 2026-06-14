@@ -49,8 +49,6 @@ class _PracticeScreenState extends State<PracticeScreen> {
   int _chunkIndex = 0;
 
   bool _isListening = false;
-  bool _azureListening = false;
-  PronunciationResult? _pronunciationResult;
   String _recognizedText = '';
   bool _showTranslation = true;
   bool _showReading = false;
@@ -187,8 +185,6 @@ class _PracticeScreenState extends State<PracticeScreen> {
     _feedback = '';
     _hasResult = false;
     _isListening = false;
-    _azureListening = false;
-    _pronunciationResult = null;
     _showVocab = false;
     _recallRevealed = false;
     _recallPeeking = false;
@@ -408,12 +404,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
     // 상태만 표시될 뿐 실제로는 전혀 인식하지 못한다. Azure STT가 설정되어
     // 있으면 REST 기반 Azure 인식을 우선 사용해 이 문제를 피한다.
     if (kIsWeb && TtsService.isAzureEnabled) {
-      // 말툭튀는 키워드 채점만 사용하므로 PA(발음 평가) config 불필요.
-      // referenceText를 비워 PA config를 건너뛴다.
-      final result = await _speechService.recognizeWithPronunciation(
-        referenceText: '',
-        localeId: localeId,
-      );
+      final result = await _speechService.recognizeSpeech(localeId: localeId);
       if (result.supported) {
         if (!mounted) return;
         TtsService.setMicActive(false);
@@ -517,11 +508,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
     } else if (kIsWeb && TtsService.isAzureEnabled) {
       // iOS Safari 등에서 Web Speech API가 동작하지 않는 문제를 피하기 위해
       // Azure STT를 우선 사용한다 (단발 인식, _toggleRecallListening과 동일).
-      // 말툭튀는 PA(발음 평가) 불필요 → referenceText: '' 로 PA config 생략.
-      final result = await _speechService.recognizeWithPronunciation(
-        referenceText: '',
-        localeId: localeId,
-      );
+      final result = await _speechService.recognizeSpeech(localeId: localeId);
       if (result.supported) {
         if (mounted) {
           if (result.text.isEmpty && result.error != null) {
@@ -672,31 +659,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
     if (mounted) setState(() => _isPlaying = false);
   }
 
-  // ── 발음 평가 ──
-
-  /// 발음 평가에 Azure STT + Pronunciation Assessment를 사용할지 여부.
-  /// 웹 + Azure 설정 + 문장 모드에서만 사용하며, 기존 텍스트 일치 채점은
-  /// 그대로 유지하고 발음 점수를 추가 정보로 표시한다.
-  bool get _useAzurePronunciation =>
-      kIsWeb &&
-      !_useDemoMode &&
-      _level == PracticeLevel.sentence &&
-      TtsService.isAzureEnabled;
-
   Future<void> _toggleListening() async {
     if (_isListening) {
-      if (_azureListening) {
-        // Azure recognizeOnceAsync는 자체 무음 감지로 종료되므로, 수동 중단
-        // 시에는 인식기를 닫고 상태만 정리한다 (결과는 받지 않음).
-        _speechService.cancelPronunciationRecognition();
-        TtsService.setMicActive(false);
-        setState(() {
-          _isListening = false;
-          _azureListening = false;
-          _statusMessage = _t('instruction_no_speech');
-        });
-        return;
-      }
       setState(() {
         _isListening = false;
         _statusMessage = _t('instruction_analyzing');
@@ -728,27 +692,6 @@ class _PracticeScreenState extends State<PracticeScreen> {
     if (_useDemoMode) return;
 
     TtsService.setMicActive(true);
-
-    if (_useAzurePronunciation) {
-      _azureListening = true;
-      final result = await _speechService.recognizeWithPronunciation(
-        referenceText: _target,
-      );
-      if (!mounted || !_azureListening) return;
-      _azureListening = false;
-      TtsService.setMicActive(false);
-      if (result.text.isNotEmpty) {
-        _pronunciationResult = result;
-        _recognizedText = result.text;
-        _processResult(result.text);
-      } else {
-        setState(() {
-          _isListening = false;
-          _statusMessage = _t('instruction_no_speech');
-        });
-      }
-      return;
-    }
 
     await _speechService.startListening(
       onResult: (text, isFinal) {
@@ -1936,46 +1879,6 @@ class _PracticeScreenState extends State<PracticeScreen> {
           Text(_feedback,
               style: const TextStyle(
                   color: AppColors.textSecondary, fontSize: 14, height: 1.5)),
-          if (_pronunciationResult?.hasScores == true) ...[
-            const SizedBox(height: 16),
-            const Divider(color: Colors.white10, height: 1),
-            const SizedBox(height: 16),
-            Text('Azure 발음 평가',
-                style: const TextStyle(
-                    color: AppColors.textMuted,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                _buildPronScoreItem('정확도', _pronunciationResult!.accuracyScore),
-                _buildPronScoreItem('유창성', _pronunciationResult!.fluencyScore),
-                _buildPronScoreItem(
-                    '완성도', _pronunciationResult!.completenessScore),
-                _buildPronScoreItem('종합', _pronunciationResult!.pronScore),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPronScoreItem(String label, double? value) {
-    return Expanded(
-      child: Column(
-        children: [
-          Text(
-            value != null ? value.round().toString() : '-',
-            style: const TextStyle(
-                color: AppColors.accent,
-                fontSize: 20,
-                fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 4),
-          Text(label,
-              style: const TextStyle(
-                  color: AppColors.textMuted, fontSize: 11)),
         ],
       ),
     );
