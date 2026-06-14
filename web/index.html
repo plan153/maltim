@@ -69,9 +69,18 @@
       const gainNode = window.__ttsGainNode;
       const ctx = window.__ttsAudioCtx;
       if (gainNode && ctx) {
+        // 마이크 인식 중 AudioContext가 suspended 상태로 전환되는 경우가
+        // 있어, 이때는 setTargetAtTime의 currentTime이 멈춰 게인 보정이
+        // 적용되지 않거나 다음 호출 시 누적되어 볼륨이 불안정해진다.
+        if (ctx.state === 'suspended') {
+          try { ctx.resume(); } catch (e) {}
+        }
         const target = window.__micActive
             ? window.MIC_DUCK_COMPENSATION
             : 1.0;
+        // 이전에 예약된 램프가 남아있으면 새 목표값과 충돌해 들썩이는
+        // 현상이 생길 수 있으므로 먼저 취소한다.
+        try { gainNode.gain.cancelScheduledValues(ctx.currentTime); } catch (e) {}
         gainNode.gain.setTargetAtTime(target, ctx.currentTime, 0.15);
       }
     };

@@ -34,7 +34,7 @@ class PronunciationResult {
 
 /// 일본어 음성 인식(STT) 서비스. (speech_to_text + 데모 시뮬레이션)
 class SpeechService {
-  final SpeechToText _speech = SpeechToText();
+  SpeechToText _speech = SpeechToText();
   bool _isInitialized = false;
   bool _useDemoMode = false;
 
@@ -60,6 +60,12 @@ class SpeechService {
   /// STT 초기화. 실패 시 데모 모드로 전환.
   Future<bool> initialize() async {
     if (_isInitialized) return true;
+
+    // 이전 초기화 시도가 실패했거나 인식기가 permanent 오류로 깨진 경우,
+    // 같은 SpeechToText 인스턴스를 재사용하면 내부 상태(특히 웹의
+    // webkitSpeechRecognition 객체)가 복구되지 않아 이후 인식이 계속
+    // 실패한다. 새 인스턴스로 교체해 깨끗한 상태에서 다시 초기화한다.
+    _speech = SpeechToText();
 
     try {
       final hasPermission = await requestMicrophonePermission();

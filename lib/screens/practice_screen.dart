@@ -535,6 +535,13 @@ class _PracticeScreenState extends State<PracticeScreen> {
       _recallRecognized = '';
     });
 
+    // 인식기를 미리 초기화해 둔다. 그렇지 않으면 첫 문장의 STT 시작 시
+    // 비동기 초기화가 함께 일어나며 인식 시작이 지연되어 첫 발화를
+    // 놓치는 경우가 있다(두 번째 문장부터는 정상 동작).
+    if (!_useDemoMode) {
+      await _speechService.initialize();
+    }
+
     for (var i = _currentIndex; i < _sentences.length; i++) {
       if (!_isPlaying || !mounted) break;
       setState(() {
@@ -1178,8 +1185,6 @@ class _PracticeScreenState extends State<PracticeScreen> {
   /// 말툭튀(장면 회상) 모드 카드.
   Widget _buildRecallCard(PracticeSentence s) {
     final isJpToKo = _recallDirection == RecallDirection.jpToKo;
-    final sourceLabel = isJpToKo ? '🇯🇵 일본어' : '🇰🇷 한국어';
-    final targetLabel = isJpToKo ? '🇰🇷 한국어' : '🇯🇵 일본어';
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -1222,10 +1227,6 @@ class _PracticeScreenState extends State<PracticeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(sourceLabel,
-                    style: const TextStyle(
-                        color: AppColors.textMuted, fontSize: 11)),
-                const SizedBox(height: 6),
                 Text(
                   _recallSourceText,
                   style: const TextStyle(
@@ -1294,10 +1295,6 @@ class _PracticeScreenState extends State<PracticeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(targetLabel,
-                        style: const TextStyle(
-                            color: AppColors.textMuted, fontSize: 11)),
-                    const SizedBox(height: 6),
                     Text(
                       _recallTargetText,
                       style: const TextStyle(
@@ -1396,7 +1393,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
 
   Widget _recallDirectionToggle() {
     final isJpToKo = _recallDirection == RecallDirection.jpToKo;
-    final label = isJpToKo ? '일 → 한' : '한 → 일';
+    final currentLabel = isJpToKo ? '일 → 한' : '한 → 일';
+    final switchLabel = isJpToKo ? '한 → 일' : '일 → 한';
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -1416,11 +1414,19 @@ class _PracticeScreenState extends State<PracticeScreen> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(label,
-                  style: const TextStyle(
-                      color: AppColors.accent,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold)),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(currentLabel,
+                      style: const TextStyle(
+                          color: AppColors.accent,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold)),
+                  Text('탭하면 $switchLabel로',
+                      style: const TextStyle(
+                          color: AppColors.textMuted, fontSize: 9)),
+                ],
+              ),
               const SizedBox(width: 4),
               const Icon(Icons.swap_horiz, color: AppColors.accent, size: 16),
             ],
@@ -1488,9 +1494,12 @@ class _PracticeScreenState extends State<PracticeScreen> {
                       fontSize: 15,
                       fontWeight: FontWeight.bold)),
               const SizedBox(width: 10),
+              const Icon(Icons.format_quote,
+                  color: AppColors.textMuted, size: 15),
+              const SizedBox(width: 4),
               Expanded(
                 child: Text(
-                  '🗣 $_recallRecognized',
+                  _recallRecognized,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -1753,22 +1762,21 @@ class _PracticeScreenState extends State<PracticeScreen> {
                 Text(_t('score_title'),
                     style: const TextStyle(
                         color: AppColors.textMuted, fontSize: 13)),
-                const SizedBox(height: 6),
-                Text(
-                  _score >= 85
-                      ? _t('feedback_excellent')
-                      : _score >= 60
-                          ? _t('feedback_decent')
-                          : _t('feedback_poor'),
-                  style: TextStyle(
-                      color: color, fontSize: 15, fontWeight: FontWeight.bold),
-                ),
                 if (_recognizedText.isNotEmpty) ...[
                   const SizedBox(height: 6),
-                  Text(
-                    '🗣 $_recognizedText',
-                    style: const TextStyle(
-                        color: AppColors.textMuted, fontSize: 13),
+                  Row(
+                    children: [
+                      const Icon(Icons.format_quote,
+                          color: AppColors.textMuted, size: 15),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          _recognizedText,
+                          style: const TextStyle(
+                              color: AppColors.textMuted, fontSize: 13),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ],
@@ -1889,12 +1897,17 @@ class _PracticeScreenState extends State<PracticeScreen> {
               padding: const EdgeInsets.only(bottom: 12),
               child: Text(
                 () {
-                  final recognized = _level == PracticeLevel.recall
-                      ? _recallRecognized
-                      : _recognizedText;
-                  return recognized.isEmpty
+                  if (_level == PracticeLevel.recall) {
+                    if (_recallRecognized.isNotEmpty) {
+                      return '"$_recallRecognized"';
+                    }
+                    return _recallDirection == RecallDirection.jpToKo
+                        ? '한국어로 말해보세요'
+                        : '일본어로 말해보세요';
+                  }
+                  return _recognizedText.isEmpty
                       ? _t('say_words')
-                      : '"$recognized"';
+                      : '"$_recognizedText"';
                 }(),
                 textAlign: TextAlign.center,
                 maxLines: 2,
