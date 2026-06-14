@@ -181,6 +181,87 @@
       });
     };
 
+    // Azure STT + 발음 평가(Pronunciation Assessment).
+    // referenceText가 있으면 해당 문장을 기준으로 정확도/유창성/완성도/종합 점수를
+    // 함께 계산한다. 결과는 JSON 문자열로 resolve: { text, pronunciation, error }
+    window.__azureSttActive = null;
+
+    window.stopAzureSttWeb = function() {
+      const entry = window.__azureSttActive;
+      window.__azureSttActive = null;
+      if (entry && entry.recognizer) {
+        try { entry.recognizer.close(); } catch (e) {}
+      }
+    };
+
+    window.startAzureSttWeb = function(key, region, locale, referenceText) {
+      window.stopAzureSttWeb();
+
+      return new Promise((resolve, reject) => {
+        try {
+          if (typeof SpeechSDK === 'undefined') {
+            reject("Azure Speech SDK is not loaded.");
+            return;
+          }
+
+          const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(key, region);
+          speechConfig.speechRecognitionLanguage = locale;
+          const audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
+          const recognizer = new SpeechSDK.SpeechRecognizer(speechConfig, audioConfig);
+
+          if (referenceText && referenceText.trim().length > 0) {
+            try {
+              const paConfig = new SpeechSDK.PronunciationAssessmentConfig(
+                referenceText,
+                SpeechSDK.PronunciationAssessmentGradingSystem.HundredMark,
+                SpeechSDK.PronunciationAssessmentGranularity.Phoneme,
+                true
+              );
+              paConfig.applyTo(recognizer);
+            } catch (e) {}
+          }
+
+          const entry = { recognizer: recognizer, done: false };
+          window.__azureSttActive = entry;
+
+          const finish = (val) => {
+            if (entry.done) return;
+            entry.done = true;
+            if (window.__azureSttActive === entry) window.__azureSttActive = null;
+            try { recognizer.close(); } catch (e) {}
+            resolve(val);
+          };
+
+          recognizer.recognizeOnceAsync(
+            result => {
+              if (result.reason === SpeechSDK.ResultReason.RecognizedSpeech) {
+                let pronunciation = null;
+                try {
+                  const par = SpeechSDK.PronunciationAssessmentResult.fromResult(result);
+                  pronunciation = {
+                    accuracyScore: par.accuracyScore,
+                    fluencyScore: par.fluencyScore,
+                    completenessScore: par.completenessScore,
+                    pronScore: par.pronunciationScore
+                  };
+                } catch (e) {}
+                finish(JSON.stringify({ text: result.text, pronunciation: pronunciation }));
+              } else if (result.reason === SpeechSDK.ResultReason.NoMatch) {
+                finish(JSON.stringify({ text: '', pronunciation: null }));
+              } else {
+                finish(JSON.stringify({ text: '', pronunciation: null, error: 'recognition_failed' }));
+              }
+            },
+            error => {
+              finish(JSON.stringify({ text: '', pronunciation: null, error: String(error) }));
+            }
+          );
+        } catch (e) {
+          reject("Azure STT error: " + e.toString());
+        }
+      });
+    };
+
     // 문장 전환용 짧은 효과음 (WebAudio 비프, 에셋 불필요). 끝나면 resolve.
     window.playChimeWeb = function() {
       return new Promise((resolve) => {

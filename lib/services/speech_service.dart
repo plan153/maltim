@@ -1,9 +1,36 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import 'app_language.dart';
+import 'tts_service.dart';
+import 'web_stt_helper.dart';
+
+/// Azure 발음 평가(Pronunciation Assessment) 결과.
+/// 웹에서만 지원되며, 미지원 환경에서는 [supported]가 false이다.
+class PronunciationResult {
+  final bool supported;
+  final String text;
+  final double? accuracyScore;
+  final double? fluencyScore;
+  final double? completenessScore;
+  final double? pronScore;
+  final String? error;
+
+  const PronunciationResult({
+    required this.supported,
+    this.text = '',
+    this.accuracyScore,
+    this.fluencyScore,
+    this.completenessScore,
+    this.pronScore,
+    this.error,
+  });
+
+  bool get hasScores => pronScore != null;
+}
 
 /// 일본어 음성 인식(STT) 서비스. (speech_to_text + 데모 시뮬레이션)
 class SpeechService {
@@ -153,6 +180,50 @@ class SpeechService {
   Future<void> cancelListening() async {
     if (_useDemoMode) return;
     await _speech.cancel();
+  }
+
+  /// Azure 발음 평가(Pronunciation Assessment)로 한 번 인식한다.
+  /// [referenceText]를 기준으로 정확도/유창성/완성도/종합 점수를 함께 반환한다.
+  /// 웹에서만 지원되며, 그 외 환경에서는 supported=false를 반환한다.
+  Future<PronunciationResult> recognizeWithPronunciation({
+    required String referenceText,
+    String? localeId,
+  }) async {
+    if (!kIsWeb || !WebSttHelper.isSupported || !TtsService.isAzureEnabled) {
+      return const PronunciationResult(supported: false);
+    }
+
+    final effectiveLocale = localeId ?? appLanguage.sttLocale;
+    final webLocale = effectiveLocale.replaceAll('_', '-');
+
+    try {
+      final raw = await WebSttHelper.recognizeWithPronunciation(
+        TtsService.azureKey,
+        TtsService.azureRegion,
+        webLocale,
+        referenceText,
+      );
+      final json = jsonDecode(raw) as Map<String, dynamic>;
+      final pronunciation = json['pronunciation'] as Map<String, dynamic>?;
+      return PronunciationResult(
+        supported: true,
+        text: (json['text'] as String?) ?? '',
+        accuracyScore: (pronunciation?['accuracyScore'] as num?)?.toDouble(),
+        fluencyScore: (pronunciation?['fluencyScore'] as num?)?.toDouble(),
+        completenessScore:
+            (pronunciation?['completenessScore'] as num?)?.toDouble(),
+        pronScore: (pronunciation?['pronScore'] as num?)?.toDouble(),
+        error: json['error'] as String?,
+      );
+    } catch (e) {
+      debugPrint('Azure 발음평가 오류: $e');
+      return PronunciationResult(supported: true, error: e.toString());
+    }
+  }
+
+  /// 진행 중인 Azure 발음평가 인식을 중단한다.
+  void cancelPronunciationRecognition() {
+    if (kIsWeb) WebSttHelper.stop();
   }
 
   /// 데모 모드용 가상 발화 생성.
