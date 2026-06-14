@@ -647,6 +647,10 @@ class _PracticeScreenState extends State<PracticeScreen> {
       });
       await _speakRecallSource();
       if (!_isPlaying || !mounted) break;
+      // TTS 종료 후 브라우저 AEC(에코 제거) 잔재가 마이크 입력을 억제하는
+      // 구간(~300ms)을 피하기 위한 대기. 없으면 Azure STT가 빈 결과를 반환한다.
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (!_isPlaying || !mounted) break;
 
       // 학습자가 대응 문장을 말할 시간을 주고 STT로 인식한다.
       await _listenOnceForRecall();
